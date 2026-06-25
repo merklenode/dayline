@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createEmptyDay, DayRecord, FocusTask, LedgerState, loadLedger, saveLedger, SectionId, todayKey } from "@/lib/storage";
-import { AppSettings, defaultSettings, loadSettings, saveSettings, SECTION_ORDER } from "@/lib/settings";
+import { AppSettings, loadSettings, saveSettings, SECTION_ORDER } from "@/lib/settings";
 import { clearTimerState, loadTimerState, saveTimerState } from "@/lib/timerState";
 import { Header } from "@/components/Header";
 import { TaskInput } from "@/components/TaskInput";
@@ -16,7 +16,7 @@ function uid() {
 
 export default function Home() {
   const [ledger, setLedger] = useState<LedgerState>({ days: {} });
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings());
+  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedSection, setSelectedSection] = useState<SectionId>("execution");
@@ -25,6 +25,7 @@ export default function Home() {
   const [englishStatus, setEnglishStatus] = useState("");
 
   // Timer state — running is never persisted
+  const workMinutesRef = useRef(settings.workMinutes);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [timerMode, setTimerMode] = useState<"work" | "break">("work");
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -46,7 +47,6 @@ export default function Home() {
     }
 
     setLedger(loadedLedger);
-    setSettings(loadedSettings);
     setActiveTaskId(loadedTimer.activeTaskId);
     setTimerMode("work");
     setSecondsLeft(
@@ -98,7 +98,7 @@ export default function Home() {
     expiredRef.current = null;
 
     if (expired.mode === "work") {
-      addFocusMinutes(settings.workMinutes);
+      addFocusMinutes(workMinutesRef.current);
       setTimerMode("break");
       setSecondsLeft(settings.breakMinutes * 60);
       setRunning(true); // auto-start break
@@ -161,6 +161,7 @@ export default function Home() {
   }
 
   function handleTimerStart(taskId: string) {
+    workMinutesRef.current = settings.workMinutes;
     setActiveTaskId(taskId);
     setTimerMode("work");
     setSecondsLeft(settings.workMinutes * 60);

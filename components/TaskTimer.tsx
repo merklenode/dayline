@@ -42,6 +42,15 @@ export function TaskTimer({ taskId, isActive, running, mode, secondsLeft, onStar
         <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700">
           break
         </span>
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label="Stop break"
+          title="Stop break"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+        >
+          <RotateCcw size={12} />
+        </button>
       </div>
     );
   }

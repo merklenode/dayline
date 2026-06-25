@@ -12,7 +12,7 @@ type SectionGroupProps = {
   onDelete: (id: string) => void;
 };
 
-export function SectionGroup({ id, name, tasks, activeTaskId, timerProps, onToggle, onDelete }: SectionGroupProps) {
+export function SectionGroup({ name, tasks, activeTaskId, timerProps, onToggle, onDelete }: SectionGroupProps) {
   return (
     <div>
       <div className="flex items-center gap-3 border-b border-zinc-100 bg-stone-50 px-4 py-2">

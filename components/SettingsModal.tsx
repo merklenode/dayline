@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { AppSettings } from "@/lib/settings";
 import { SECTION_ORDER, DEFAULT_SECTION_NAMES, DEFAULT_WORK_MINUTES, DEFAULT_BREAK_MINUTES } from "@/lib/settings";
@@ -16,6 +16,12 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
     breakMinutes: settings.breakMinutes
   });
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   function resetDefaults() {
     setDraft({
       sectionNames: { ...DEFAULT_SECTION_NAMES },
@@ -29,7 +35,7 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-semibold text-zinc-950">Settings</h2>
           <button

@@ -24,7 +24,7 @@ export const STORAGE_KEY_V1 = "dayline:v1";
 export const STORAGE_KEY = "dayline:v2";
 
 export function todayKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 export function createEmptyDay(date = todayKey()): DayRecord {
