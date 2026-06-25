@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Focus Ledger",
-  description: "A simple time management app for daily focus, tasks, and progress."
+  title: "Dayline",
+  description: "A daily focus system for tasks, deep work, and routine progress."
 };
 
 export default function RootLayout({

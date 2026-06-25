@@ -1,10 +1,10 @@
-# Focus Ledger
+# Dayline
 
-A simple time management app for daily discipline.
+A simple daily focus system for building routine and visible progress.
 
 ## Why This Exists
 
-Focus Ledger is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It avoids complex productivity features and focuses on the basics:
+Dayline is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It avoids complex productivity features and focuses on the basics:
 
 - plan today's tasks
 - run a 25-minute focus timer

@@ -17,7 +17,7 @@ export type LedgerState = {
   days: Record<string, DayRecord>;
 };
 
-export const STORAGE_KEY = "focus-ledger:v1";
+export const STORAGE_KEY = "dayline:v1";
 
 export function todayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);

@@ -189,7 +189,7 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-6 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium text-teal-700">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">Focus Ledger</h1>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">Dayline</h1>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center sm:min-w-96">
             <Stat label="Focus" value={`${today.focusMinutes}m`} />
@@ -204,8 +204,8 @@ export default function Home() {
           <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-zinc-500">Income goal</p>
-                <h2 className="mt-1 text-xl font-semibold text-zinc-950">Earn first basic income in 2 months</h2>
+                <p className="text-sm font-medium text-zinc-500">Current sprint</p>
+                <h2 className="mt-1 text-xl font-semibold text-zinc-950">60-day independence sprint</h2>
               </div>
               <p className="text-sm font-semibold text-teal-800">Day {elapsedDays} of 60 · {daysRemaining} days left</p>
             </div>
