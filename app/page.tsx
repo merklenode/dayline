@@ -11,6 +11,7 @@ import {
   Plus,
   RotateCcw,
   Square,
+  WandSparkles,
   Trash2
 } from "lucide-react";
 import { createEmptyDay, DayRecord, FocusTask, LedgerState, loadLedger, saveLedger, todayKey } from "@/lib/storage";
@@ -50,6 +51,9 @@ function daysBetween(start: string, end: string) {
 export default function Home() {
   const [ledger, setLedger] = useState<LedgerState>({ days: {} });
   const [taskTitle, setTaskTitle] = useState("");
+  const [checkingTask, setCheckingTask] = useState(false);
+  const [checkingNote, setCheckingNote] = useState(false);
+  const [englishStatus, setEnglishStatus] = useState("");
   const [mode, setMode] = useState<"focus" | "break">("focus");
   const [secondsLeft, setSecondsLeft] = useState(FOCUS_SECONDS);
   const [running, setRunning] = useState(false);
@@ -183,6 +187,67 @@ export default function Home() {
     }));
   }
 
+  async function fixEnglish(text: string) {
+    const response = await fetch("/api/check-english", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ text })
+    });
+
+    const result = (await response.json()) as { correctedText?: string; changed?: boolean; error?: string };
+
+    if (!response.ok || result.error) {
+      throw new Error(result.error || "English check failed.");
+    }
+
+    return result;
+  }
+
+  async function fixTaskTitle() {
+    const text = taskTitle.trim();
+    if (!text) {
+      setEnglishStatus("Write a task first.");
+      return;
+    }
+
+    setCheckingTask(true);
+    setEnglishStatus("");
+    try {
+      const result = await fixEnglish(text);
+      setTaskTitle(result.correctedText ?? taskTitle);
+      setEnglishStatus(result.changed ? "Task spelling improved." : "No correction found.");
+    } catch (error) {
+      setEnglishStatus(error instanceof Error ? error.message : "English check failed.");
+    } finally {
+      setCheckingTask(false);
+    }
+  }
+
+  async function fixDistractionNote() {
+    const text = today.distractionNote.trim();
+    if (!text) {
+      setEnglishStatus("Write a note first.");
+      return;
+    }
+
+    setCheckingNote(true);
+    setEnglishStatus("");
+    try {
+      const result = await fixEnglish(text);
+      updateToday((record) => ({
+        ...record,
+        distractionNote: result.correctedText ?? record.distractionNote
+      }));
+      setEnglishStatus(result.changed ? "Note spelling improved." : "No correction found.");
+    } catch (error) {
+      setEnglishStatus(error instanceof Error ? error.message : "English check failed.");
+    } finally {
+      setCheckingNote(false);
+    }
+  }
+
   return (
     <main className="min-h-screen">
       <section className="border-b border-zinc-200 bg-white">
@@ -231,16 +296,14 @@ export default function Home() {
                 autoCapitalize="sentences"
                 className="min-h-11 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
               />
-              <button
-                type="button"
-                onClick={addTask}
-                disabled={today.tasks.length >= DAILY_TASK_LIMIT}
-                aria-label="Add task"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-700 text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-              >
+              <IconAction label="Fix task spelling" onClick={fixTaskTitle} disabled={checkingTask || !taskTitle.trim()} tone="neutral">
+                <WandSparkles size={17} />
+              </IconAction>
+              <IconAction label="Add task" onClick={addTask} disabled={today.tasks.length >= DAILY_TASK_LIMIT} tone="primary">
                 <Plus size={18} />
-              </button>
+              </IconAction>
             </div>
+            {englishStatus ? <p className="mt-2 text-sm text-zinc-500">{englishStatus}</p> : null}
             {today.tasks.length >= DAILY_TASK_LIMIT ? <p className="mt-2 text-sm text-zinc-500">Daily cap reached. Finish these before adding more.</p> : null}
           </div>
 
@@ -280,9 +343,20 @@ export default function Home() {
           </div>
 
           <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            <label htmlFor="distraction" className="text-base font-semibold text-zinc-950">
-              Distraction Note
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="distraction" className="text-base font-semibold text-zinc-950">
+                Distraction Note
+              </label>
+              <button
+                type="button"
+                onClick={fixDistractionNote}
+                disabled={checkingNote || !today.distractionNote.trim()}
+                className="inline-flex min-h-9 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400"
+              >
+                <WandSparkles size={15} />
+                {checkingNote ? "Checking" : "Fix spelling"}
+              </button>
+            </div>
             <textarea
               id="distraction"
               value={today.distractionNote}
@@ -298,6 +372,7 @@ export default function Home() {
               autoCapitalize="sentences"
               className="mt-3 min-h-24 w-full resize-none rounded-md border border-zinc-300 p-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
             />
+            <p className="mt-2 text-xs text-zinc-400">English checks run only when you click the button. Powered by LanguageTool.</p>
           </div>
         </section>
 
@@ -393,6 +468,38 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
       title={label}
       onClick={onClick}
       className="inline-flex min-h-11 items-center justify-center rounded-md bg-white/10 text-zinc-100 transition hover:bg-white/15"
+    >
+      {children}
+    </button>
+  );
+}
+
+function IconAction({
+  label,
+  onClick,
+  disabled,
+  tone,
+  children
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  tone: "primary" | "neutral";
+  children: React.ReactNode;
+}) {
+  const classes =
+    tone === "primary"
+      ? "bg-teal-700 text-white hover:bg-teal-800 disabled:bg-zinc-300"
+      : "border border-zinc-300 bg-white text-zinc-700 hover:border-teal-700 hover:text-teal-800 disabled:border-zinc-200 disabled:text-zinc-400";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-md transition disabled:cursor-not-allowed ${classes}`}
     >
       {children}
     </button>
