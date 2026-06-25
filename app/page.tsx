@@ -34,7 +34,8 @@ export default function Home() {
   const date = todayKey();
   const today = ledger.days[date] ?? createEmptyDay(date);
 
-  // Load all stores on mount
+  // Load client-only localStorage stores on mount.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const loadedLedger = loadLedger();
     const loadedSettings = loadSettings();
@@ -55,6 +56,7 @@ export default function Home() {
     );
     setRunning(false); // never auto-start
   }, [date]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist ledger
   useEffect(() => {
