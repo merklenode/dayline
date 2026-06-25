@@ -1,123 +1,112 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  BarChart3,
-  Check,
-  Circle,
-  Clock3,
-  Pause,
-  Play,
-  Plus,
-  RotateCcw,
-  Square,
-  WandSparkles,
-  Trash2
-} from "lucide-react";
-import { createEmptyDay, DayRecord, FocusTask, LedgerState, loadLedger, saveLedger, todayKey } from "@/lib/storage";
-
-const FOCUS_SECONDS = 25 * 60;
-const BREAK_SECONDS = 5 * 60;
-const START_DATE = "2026-06-25";
-const DEADLINE = "2026-08-24";
-const DAILY_TASK_LIMIT = 5;
-
-function formatSeconds(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
+import { useEffect, useRef, useState } from "react";
+import { createEmptyDay, DayRecord, FocusTask, LedgerState, loadLedger, saveLedger, SectionId, todayKey } from "@/lib/storage";
+import { AppSettings, defaultSettings, loadSettings, saveSettings, SECTION_ORDER } from "@/lib/settings";
+import { clearTimerState, loadTimerState, saveTimerState } from "@/lib/timerState";
+import { Header } from "@/components/Header";
+import { TaskInput } from "@/components/TaskInput";
+import { SectionGroup } from "@/components/SectionGroup";
+import { DistractionNote } from "@/components/DistractionNote";
+import { SettingsModal } from "@/components/SettingsModal";
 
 function uid() {
   return crypto.randomUUID();
 }
 
-function lastSevenDays() {
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    return todayKey(date);
-  });
-}
-
-function daysBetween(start: string, end: string) {
-  const startTime = new Date(`${start}T00:00:00`).getTime();
-  const endTime = new Date(`${end}T00:00:00`).getTime();
-  return Math.max(0, Math.ceil((endTime - startTime) / 86400000));
-}
-
 export default function Home() {
   const [ledger, setLedger] = useState<LedgerState>({ days: {} });
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings());
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
+  const [selectedSection, setSelectedSection] = useState<SectionId>("execution");
   const [checkingTask, setCheckingTask] = useState(false);
   const [checkingNote, setCheckingNote] = useState(false);
   const [englishStatus, setEnglishStatus] = useState("");
-  const [mode, setMode] = useState<"focus" | "break">("focus");
-  const [secondsLeft, setSecondsLeft] = useState(FOCUS_SECONDS);
-  const [running, setRunning] = useState(false);
-  const date = todayKey();
 
+  // Timer state — running is never persisted
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [timerMode, setTimerMode] = useState<"work" | "break">("work");
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [running, setRunning] = useState(false);
+  const expiredRef = useRef<{ mode: "work" | "break" } | null>(null);
+
+  const date = todayKey();
   const today = ledger.days[date] ?? createEmptyDay(date);
 
+  // Load all stores on mount
   useEffect(() => {
-    const loaded = loadLedger();
-    if (!loaded.days[date]) {
-      loaded.days[date] = createEmptyDay(date);
+    const loadedLedger = loadLedger();
+    const loadedSettings = loadSettings();
+    const loadedTimer = loadTimerState();
+
+    if (!loadedLedger.days[date]) {
+      loadedLedger.days[date] = createEmptyDay(date);
     }
-    setLedger(loaded);
+
+    setLedger(loadedLedger);
+    setSettings(loadedSettings);
+    setActiveTaskId(loadedTimer.activeTaskId);
+    setTimerMode("work");
+    setSecondsLeft(
+      loadedTimer.activeTaskId && loadedTimer.secondsLeft > 0
+        ? loadedTimer.secondsLeft
+        : loadedSettings.workMinutes * 60
+    );
+    setRunning(false); // never auto-start
   }, [date]);
 
+  // Persist ledger
   useEffect(() => {
     if (Object.keys(ledger.days).length > 0) {
       saveLedger(ledger);
     }
   }, [ledger]);
 
+  // Persist settings
   useEffect(() => {
-    if (!running) {
-      return;
+    saveSettings(settings);
+  }, [settings]);
+
+  // Persist timer position (but never running state)
+  useEffect(() => {
+    if (activeTaskId) {
+      saveTimerState({ activeTaskId, secondsLeft });
     }
+  }, [activeTaskId, secondsLeft]);
 
-    const interval = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current > 1) {
-          return current - 1;
-        }
-
+  // Timer tick
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s > 1) return s - 1;
+        expiredRef.current = { mode: timerMode };
         setRunning(false);
-        if (mode === "focus") {
-          addFocusMinutes(25);
-          setMode("break");
-          return BREAK_SECONDS;
-        }
-
-        setMode("focus");
-        return FOCUS_SECONDS;
+        return 0;
       });
     }, 1000);
+    return () => window.clearInterval(id);
+  }, [running, timerMode]);
 
-    return () => window.clearInterval(interval);
-  }, [mode, running]);
+  // Handle timer expiry outside the interval callback to avoid stale closures
+  useEffect(() => {
+    if (running || expiredRef.current === null) return;
+    const expired = expiredRef.current;
+    expiredRef.current = null;
 
-  const completedTasks = today.tasks.filter((task) => task.done).length;
-  const completionRate = today.tasks.length ? Math.round((completedTasks / today.tasks.length) * 100) : 0;
-  const daysRemaining = daysBetween(date, DEADLINE);
-  const elapsedDays = Math.max(1, daysBetween(START_DATE, date) + 1);
-
-  const week = useMemo(() => {
-    return lastSevenDays().map((day) => {
-      const record = ledger.days[day] ?? createEmptyDay(day);
-      return {
-        date: day,
-        minutes: record.focusMinutes,
-        completed: record.tasks.filter((task) => task.done).length
-      };
-    });
-  }, [ledger.days]);
-
-  const weekMax = Math.max(60, ...week.map((day) => day.minutes));
+    if (expired.mode === "work") {
+      addFocusMinutes(settings.workMinutes);
+      setTimerMode("break");
+      setSecondsLeft(settings.breakMinutes * 60);
+      setRunning(true); // auto-start break
+    } else {
+      setTimerMode("work");
+      setSecondsLeft(settings.workMinutes * 60);
+      setActiveTaskId(null);
+      clearTimerState();
+    }
+  }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateToday(updater: (record: DayRecord) => DayRecord) {
     setLedger((current) => ({
@@ -128,90 +117,86 @@ export default function Home() {
     }));
   }
 
+  function addFocusMinutes(minutes: number) {
+    updateToday((record) => ({ ...record, focusMinutes: record.focusMinutes + minutes }));
+  }
+
   function addTask() {
     const cleanTitle = taskTitle.trim();
-    if (!cleanTitle) {
-      return;
-    }
+    if (!cleanTitle) return;
 
     const task: FocusTask = {
       id: uid(),
       title: cleanTitle,
       done: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      section: selectedSection
     };
 
-    updateToday((record) => ({
-      ...record,
-      tasks: record.tasks.length >= DAILY_TASK_LIMIT ? record.tasks : [...record.tasks, task]
-    }));
+    updateToday((record) => ({ ...record, tasks: [...record.tasks, task] }));
     setTaskTitle("");
+    setEnglishStatus("");
   }
 
   function toggleTask(id: string) {
+    if (id === activeTaskId) {
+      handleTimerReset();
+    }
     updateToday((record) => ({
       ...record,
-      tasks: record.tasks.map((task) => (task.id === id ? { ...task, done: !task.done } : task))
+      tasks: record.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
     }));
   }
 
   function deleteTask(id: string) {
+    if (id === activeTaskId) {
+      handleTimerReset();
+    }
     updateToday((record) => ({
       ...record,
-      tasks: record.tasks.filter((task) => task.id !== id)
+      tasks: record.tasks.filter((t) => t.id !== id)
     }));
   }
 
-  function addFocusMinutes(minutes: number) {
-    updateToday((record) => ({
-      ...record,
-      focusMinutes: record.focusMinutes + minutes
-    }));
+  function handleTimerStart(taskId: string) {
+    setActiveTaskId(taskId);
+    setTimerMode("work");
+    setSecondsLeft(settings.workMinutes * 60);
+    setRunning(true);
   }
 
-  function resetTimer() {
+  function handleTimerPause() {
     setRunning(false);
-    setSecondsLeft(mode === "focus" ? FOCUS_SECONDS : BREAK_SECONDS);
   }
 
-  function switchMode(nextMode: "focus" | "break") {
-    setMode(nextMode);
+  function handleTimerResume() {
+    setRunning(true);
+  }
+
+  function handleTimerReset() {
     setRunning(false);
-    setSecondsLeft(nextMode === "focus" ? FOCUS_SECONDS : BREAK_SECONDS);
-  }
-
-  function closeDay() {
-    updateToday((record) => ({
-      ...record,
-      closedAt: new Date().toISOString()
-    }));
+    setTimerMode("work");
+    setSecondsLeft(settings.workMinutes * 60);
+    setActiveTaskId(null);
+    clearTimerState();
   }
 
   async function fixEnglish(text: string) {
     const response = await fetch("/api/check-english", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text })
     });
-
     const result = (await response.json()) as { correctedText?: string; changed?: boolean; error?: string };
-
     if (!response.ok || result.error) {
       throw new Error(result.error || "English check failed.");
     }
-
     return result;
   }
 
   async function fixTaskTitle() {
     const text = taskTitle.trim();
-    if (!text) {
-      setEnglishStatus("Write a task first.");
-      return;
-    }
-
+    if (!text) { setEnglishStatus("Write a task first."); return; }
     setCheckingTask(true);
     setEnglishStatus("");
     try {
@@ -227,19 +212,12 @@ export default function Home() {
 
   async function fixDistractionNote() {
     const text = today.distractionNote.trim();
-    if (!text) {
-      setEnglishStatus("Write a note first.");
-      return;
-    }
-
+    if (!text) { setEnglishStatus("Write a note first."); return; }
     setCheckingNote(true);
     setEnglishStatus("");
     try {
       const result = await fixEnglish(text);
-      updateToday((record) => ({
-        ...record,
-        distractionNote: result.correctedText ?? record.distractionNote
-      }));
+      updateToday((record) => ({ ...record, distractionNote: result.correctedText ?? record.distractionNote }));
       setEnglishStatus(result.changed ? "Note spelling improved." : "No correction found.");
     } catch (error) {
       setEnglishStatus(error instanceof Error ? error.message : "English check failed.");
@@ -248,260 +226,78 @@ export default function Home() {
     }
   }
 
+  const completedTasks = today.tasks.filter((t) => t.done).length;
+
+  const timerProps = {
+    running,
+    mode: timerMode,
+    secondsLeft,
+    onStart: handleTimerStart,
+    onPause: handleTimerPause,
+    onResume: handleTimerResume,
+    onReset: handleTimerReset
+  };
+
   return (
     <main className="min-h-screen">
-      <section className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-6 sm:px-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-teal-700">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">Dayline</h1>
+      <Header
+        focusMinutes={today.focusMinutes}
+        doneCount={completedTasks}
+        totalCount={today.tasks.length}
+        onSettingsClick={() => setSettingsOpen(true)}
+      />
+
+      <div className="mx-auto w-full max-w-2xl space-y-5 px-5 py-6 sm:px-8">
+        <TaskInput
+          value={taskTitle}
+          selectedSection={selectedSection}
+          settings={settings}
+          checking={checkingTask}
+          englishStatus={englishStatus}
+          onChange={setTaskTitle}
+          onSectionChange={setSelectedSection}
+          onAdd={addTask}
+          onFixSpelling={fixTaskTitle}
+        />
+
+        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+          <div className="border-b border-zinc-200 px-4 py-3">
+            <h2 className="text-base font-semibold text-zinc-950">Today Plan</h2>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center sm:min-w-96">
-            <Stat label="Focus" value={`${today.focusMinutes}m`} />
-            <Stat label="Done" value={`${completedTasks}/${today.tasks.length}`} />
-            <Stat label="Score" value={`${completionRate}%`} />
+          <div className="divide-y divide-zinc-100">
+            {SECTION_ORDER.map((sectionId) => (
+              <SectionGroup
+                key={sectionId}
+                id={sectionId}
+                name={settings.sectionNames[sectionId]}
+                tasks={today.tasks.filter((t) => t.section === sectionId)}
+                activeTaskId={activeTaskId}
+                timerProps={timerProps}
+                onToggle={toggleTask}
+                onDelete={deleteTask}
+              />
+            ))}
           </div>
         </div>
-      </section>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[1fr_22rem]">
-        <section className="space-y-5">
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-zinc-500">Current sprint</p>
-                <h2 className="mt-1 text-xl font-semibold text-zinc-950">60-day independence sprint</h2>
-              </div>
-              <p className="text-sm font-semibold text-teal-800">Day {elapsedDays} of 60 · {daysRemaining} days left</p>
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full rounded-full bg-teal-700" style={{ width: `${Math.min(100, (elapsedDays / 60) * 100)}%` }} />
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <input
-                value={taskTitle}
-                onChange={(event) => setTaskTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    addTask();
-                  }
-                }}
-                placeholder="Add one important task"
-                disabled={today.tasks.length >= DAILY_TASK_LIMIT}
-                spellCheck={true}
-                autoCorrect="on"
-                autoCapitalize="sentences"
-                className="min-h-11 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-              />
-              <IconAction label="Fix task spelling" onClick={fixTaskTitle} disabled={checkingTask || !taskTitle.trim()} tone="neutral">
-                <WandSparkles size={17} />
-              </IconAction>
-              <IconAction label="Add task" onClick={addTask} disabled={today.tasks.length >= DAILY_TASK_LIMIT} tone="primary">
-                <Plus size={18} />
-              </IconAction>
-            </div>
-            {englishStatus ? <p className="mt-2 text-sm text-zinc-500">{englishStatus}</p> : null}
-            {today.tasks.length >= DAILY_TASK_LIMIT ? <p className="mt-2 text-sm text-zinc-500">Daily cap reached. Finish these before adding more.</p> : null}
-          </div>
-
-          <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="text-base font-semibold text-zinc-950">Today Plan</h2>
-            </div>
-            <div className="divide-y divide-zinc-100">
-              {today.tasks.length === 0 ? (
-                <div className="px-4 py-10 text-center text-sm text-zinc-500">No tasks yet. Add one income task and one skill task for today.</div>
-              ) : (
-                today.tasks.map((task) => (
-                  <div key={task.id} className="flex min-h-14 items-center gap-3 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleTask(task.id)}
-                      aria-label={task.done ? "Mark incomplete" : "Mark complete"}
-                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition ${
-                        task.done ? "border-teal-700 bg-teal-700 text-white" : "border-zinc-300 text-zinc-500 hover:border-teal-600"
-                      }`}
-                    >
-                      {task.done ? <Check size={16} /> : <Circle size={15} />}
-                    </button>
-                    <span className={`flex-1 text-sm ${task.done ? "text-zinc-400 line-through" : "text-zinc-900"}`}>{task.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => deleteTask(task.id)}
-                      aria-label="Delete task"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="distraction" className="text-base font-semibold text-zinc-950">
-                Distraction Note
-              </label>
-              <button
-                type="button"
-                onClick={fixDistractionNote}
-                disabled={checkingNote || !today.distractionNote.trim()}
-                className="inline-flex min-h-9 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:border-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400"
-              >
-                <WandSparkles size={15} />
-                {checkingNote ? "Checking" : "Fix spelling"}
-              </button>
-            </div>
-            <textarea
-              id="distraction"
-              value={today.distractionNote}
-              onChange={(event) =>
-                updateToday((record) => ({
-                  ...record,
-                  distractionNote: event.target.value
-                }))
-              }
-              placeholder="What wasted your time today?"
-              spellCheck={true}
-              autoCorrect="on"
-              autoCapitalize="sentences"
-              className="mt-3 min-h-24 w-full resize-none rounded-md border border-zinc-300 p-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-            />
-            <p className="mt-2 text-xs text-zinc-400">English checks run only when you click the button. Powered by LanguageTool.</p>
-          </div>
-        </section>
-
-        <aside className="space-y-5">
-          <div className="rounded-lg border border-zinc-200 bg-zinc-950 p-5 text-white shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-zinc-400">Timer</p>
-                <h2 className="mt-1 text-lg font-semibold">{mode === "focus" ? "Focus Sprint" : "Break"}</h2>
-              </div>
-              <Clock3 className="text-teal-300" size={24} />
-            </div>
-
-            <div className="py-8 text-center">
-              <p className="font-mono text-6xl font-semibold tracking-normal">{formatSeconds(secondsLeft)}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => switchMode("focus")}
-                className={`min-h-10 rounded-md text-sm font-medium transition ${mode === "focus" ? "bg-white text-zinc-950" : "bg-white/10 text-zinc-300 hover:bg-white/15"}`}
-              >
-                Focus
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("break")}
-                className={`min-h-10 rounded-md text-sm font-medium transition ${mode === "break" ? "bg-white text-zinc-950" : "bg-white/10 text-zinc-300 hover:bg-white/15"}`}
-              >
-                Break
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <IconButton label={running ? "Pause timer" : "Start timer"} onClick={() => setRunning((current) => !current)}>
-                {running ? <Pause size={18} /> : <Play size={18} />}
-              </IconButton>
-              <IconButton label="Reset timer" onClick={resetTimer}>
-                <RotateCcw size={18} />
-              </IconButton>
-              <IconButton label="Add 25 focus minutes" onClick={() => addFocusMinutes(25)}>
-                <Square size={16} />
-              </IconButton>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-zinc-950">Last 7 Days</h2>
-              <BarChart3 size={18} className="text-teal-700" />
-            </div>
-            <div className="space-y-3">
-              {week.map((day) => (
-                <div key={day.date} className="grid grid-cols-[3.5rem_1fr_3rem] items-center gap-3 text-sm">
-                  <span className="text-zinc-500">{day.date.slice(5)}</span>
-                  <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
-                    <div className="h-full rounded-full bg-teal-700" style={{ width: `${Math.min(100, (day.minutes / weekMax) * 100)}%` }} />
-                  </div>
-                  <span className="text-right font-medium text-zinc-800">{day.minutes}m</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={closeDay}
-            className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-teal-700 hover:text-teal-800"
-          >
-            End Day
-          </button>
-        </aside>
+        <DistractionNote
+          value={today.distractionNote}
+          checking={checkingNote}
+          onChange={(value) => updateToday((record) => ({ ...record, distractionNote: value }))}
+          onFixSpelling={fixDistractionNote}
+        />
       </div>
+
+      {settingsOpen && (
+        <SettingsModal
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(updated) => {
+            setSettings(updated);
+            setSettingsOpen(false);
+          }}
+        />
+      )}
     </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-zinc-200 bg-stone-50 px-3 py-2">
-      <p className="text-xs font-medium uppercase text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-950">{value}</p>
-    </div>
-  );
-}
-
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="inline-flex min-h-11 items-center justify-center rounded-md bg-white/10 text-zinc-100 transition hover:bg-white/15"
-    >
-      {children}
-    </button>
-  );
-}
-
-function IconAction({
-  label,
-  onClick,
-  disabled,
-  tone,
-  children
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  tone: "primary" | "neutral";
-  children: React.ReactNode;
-}) {
-  const classes =
-    tone === "primary"
-      ? "bg-teal-700 text-white hover:bg-teal-800 disabled:bg-zinc-300"
-      : "border border-zinc-300 bg-white text-zinc-700 hover:border-teal-700 hover:text-teal-800 disabled:border-zinc-200 disabled:text-zinc-400";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={`inline-flex h-11 w-11 items-center justify-center rounded-md transition disabled:cursor-not-allowed ${classes}`}
-    >
-      {children}
-    </button>
   );
 }
