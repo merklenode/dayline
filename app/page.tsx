@@ -226,6 +226,9 @@ export default function Home() {
                 }}
                 placeholder="Add one important task"
                 disabled={today.tasks.length >= DAILY_TASK_LIMIT}
+                spellCheck={true}
+                autoCorrect="on"
+                autoCapitalize="sentences"
                 className="min-h-11 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
               />
               <button
@@ -290,6 +293,9 @@ export default function Home() {
                 }))
               }
               placeholder="What wasted your time today?"
+              spellCheck={true}
+              autoCorrect="on"
+              autoCapitalize="sentences"
               className="mt-3 min-h-24 w-full resize-none rounded-md border border-zinc-300 p-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
             />
           </div>
