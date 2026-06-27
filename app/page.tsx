@@ -31,6 +31,7 @@ import { DistractionNote } from "@/components/DistractionNote";
 import { SettingsModal } from "@/components/SettingsModal";
 import { CurrentSessionCard } from "@/components/CurrentSessionCard";
 import { DailyRecords } from "@/components/DailyRecords";
+import { OracleCard } from "@/components/OracleCard";
 
 type ViewMode = "today" | "history";
 
@@ -379,6 +380,8 @@ export default function Home() {
                   History
                 </button>
               </div>
+
+              <OracleCard enabled={process.env.NEXT_PUBLIC_LOCUSGRAPH_ENABLED === "true"} />
 
               {allDone && (
                 <div className="mb-3 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-center">
