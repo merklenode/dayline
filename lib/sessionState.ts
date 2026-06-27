@@ -16,6 +16,7 @@ export function loadSession(): SessionState {
     const parsed = JSON.parse(raw) as SessionState;
     if (!parsed?.status) return { status: "idle" };
     if (parsed.status === "running") {
+      if (typeof parsed.endsAt !== "number" || !isFinite(parsed.endsAt)) return { status: "idle" };
       if (Date.now() >= parsed.endsAt) {
         return { status: "complete", phase: parsed.phase, taskId: parsed.taskId };
       }

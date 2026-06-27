@@ -1,8 +1,7 @@
-import type { FocusTask, SectionId } from "@/lib/storage";
+import type { FocusTask } from "@/lib/storage";
 import { TaskRow } from "./TaskRow";
 
 type SectionGroupProps = {
-  id: SectionId;
   name: string;
   tasks: FocusTask[];
   activeTaskId: string | null;

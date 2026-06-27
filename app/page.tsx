@@ -52,6 +52,7 @@ export default function Home() {
   const sessionRef = useRef<SessionState>(session);
   const prevSessionRef = useRef<SessionState>({ status: "idle" });
   const markedDoneRef = useRef(false);
+  const hasMountedRef = useRef(false);
 
   const date = todayKey();
   const today = ledger.days[date] ?? createEmptyDay(date);
@@ -121,6 +122,10 @@ export default function Home() {
 
   // Persist session and credit focus minutes when focus expires naturally
   useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
     const prev = prevSessionRef.current;
     prevSessionRef.current = session;
 
@@ -333,7 +338,6 @@ export default function Home() {
             {SECTION_ORDER.map((sectionId) => (
               <SectionGroup
                 key={sectionId}
-                id={sectionId}
                 name={settings.sectionNames[sectionId]}
                 tasks={today.tasks.filter((t) => t.section === sectionId)}
                 activeTaskId={activeTaskId}

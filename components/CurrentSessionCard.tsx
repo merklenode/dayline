@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Coffee, Play, Square } from "lucide-react";
 import type { FocusTask, SectionId } from "@/lib/storage";
 import { type SessionState, msLeft } from "@/lib/sessionState";
@@ -61,10 +61,10 @@ export function CurrentSessionCard({
   onStartBreak,
   onEndBreak,
 }: CurrentSessionCardProps) {
-  // Read once at mount — SSR-safe (typeof window guard), no effect needed
-  const [reducedMotion] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
   const activeTask =
     session.status !== "idle" ? tasks.find((t) => t.id === session.taskId) : undefined;
