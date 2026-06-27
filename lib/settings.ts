@@ -45,5 +45,9 @@ export function loadSettings(): AppSettings {
 }
 
 export function saveSettings(settings: AppSettings) {
-  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("saveSettings: localStorage write failed", e);
+  }
 }
