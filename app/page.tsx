@@ -30,6 +30,9 @@ import { SectionGroup } from "@/components/SectionGroup";
 import { DistractionNote } from "@/components/DistractionNote";
 import { SettingsModal } from "@/components/SettingsModal";
 import { CurrentSessionCard } from "@/components/CurrentSessionCard";
+import { DailyRecords } from "@/components/DailyRecords";
+
+type ViewMode = "today" | "history";
 
 function uid() {
   return crypto.randomUUID();
@@ -44,6 +47,8 @@ export default function Home() {
   const [checkingTask, setCheckingTask] = useState(false);
   const [checkingNote, setCheckingNote] = useState(false);
   const [englishStatus, setEnglishStatus] = useState("");
+  const [storageReady, setStorageReady] = useState(false);
+  const [view, setView] = useState<ViewMode>("today");
 
   const [session, setSession] = useState<SessionState>({ status: "idle" });
   const [, forceUpdate] = useReducer(x => x + 1, 0);
@@ -89,6 +94,7 @@ export default function Home() {
     setSession(restored);
     sessionRef.current = restored;
     prevSessionRef.current = restored;
+    setStorageReady(true);
   }, [date]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -285,6 +291,24 @@ export default function Home() {
   const completedTasks = today.tasks.filter((t) => t.done).length;
   const allDone = today.tasks.length > 0 && today.tasks.every((t) => t.done);
   const activeTaskId = session.status !== "idle" ? session.taskId : null;
+  const visibleSections = SECTION_ORDER.map((sectionId) => ({
+    id: sectionId,
+    tasks: today.tasks.filter((t) => t.section === sectionId),
+  })).filter((section) => section.tasks.length > 0);
+  const previousRecords = Object.values(ledger.days)
+    .filter((record) => record.date !== date)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!storageReady) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-5">
+        <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 shadow-sm">
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-teal-700" />
+          Loading Dayline
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen">
@@ -295,68 +319,110 @@ export default function Home() {
         onSettingsClick={() => setSettingsOpen(true)}
       />
 
-      <div className="mx-auto w-full max-w-2xl space-y-5 px-5 py-6 sm:px-8">
-        <CurrentSessionCard
-          session={session}
-          tasks={today.tasks}
-          sectionNames={settings.sectionNames}
-          onPause={handlePause}
-          onResume={handleResume}
-          onStop={handleStop}
-          onMarkDone={handleMarkDone}
-          onStartBreak={handleStartBreak}
-          onEndBreak={handleEndBreak}
-        />
-
-        <TaskInput
-          value={taskTitle}
-          selectedSection={selectedSection}
-          settings={settings}
-          checking={checkingTask}
-          englishStatus={englishStatus}
-          onChange={setTaskTitle}
-          onSectionChange={setSelectedSection}
-          onAdd={addTask}
-          onFixSpelling={fixTaskTitle}
-        />
-
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-          <div className="border-b border-zinc-200 px-4 py-3">
-            <h2 className="text-base font-semibold text-zinc-950">Today Plan</h2>
-          </div>
-
-          {allDone && (
-            <div className="border-b border-zinc-100 bg-teal-50 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-teal-800">All done for today.</p>
-              <p className="mt-0.5 text-xs text-teal-600">
-                Great work — take a break or add more tasks.
-              </p>
-            </div>
-          )}
-
-          <div className="divide-y divide-zinc-100">
-            {SECTION_ORDER.map((sectionId) => (
-              <SectionGroup
-                key={sectionId}
-                name={settings.sectionNames[sectionId]}
-                tasks={today.tasks.filter((t) => t.section === sectionId)}
-                activeTaskId={activeTaskId}
-                onStart={handleStartFocus}
-                onToggle={toggleTask}
-                onDelete={deleteTask}
-              />
-            ))}
-          </div>
+      <div className="mx-auto w-full max-w-4xl space-y-5 px-5 py-6 sm:px-8">
+        <div className="flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm sm:w-fit">
+          {(["today", "history"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setView(mode)}
+              className={`flex-1 rounded-md px-4 py-2 text-sm font-medium capitalize transition sm:flex-none ${
+                view === mode
+                  ? "bg-teal-700 text-white"
+                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
         </div>
 
-        <DistractionNote
-          value={today.distractionNote}
-          checking={checkingNote}
-          onChange={(value) =>
-            updateToday((record) => ({ ...record, distractionNote: value }))
-          }
-          onFixSpelling={fixDistractionNote}
-        />
+        {view === "today" ? (
+          <>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
+              <CurrentSessionCard
+                session={session}
+                tasks={today.tasks}
+                sectionNames={settings.sectionNames}
+                onPause={handlePause}
+                onResume={handleResume}
+                onStop={handleStop}
+                onMarkDone={handleMarkDone}
+                onStartBreak={handleStartBreak}
+                onEndBreak={handleEndBreak}
+              />
+
+              <TaskInput
+                value={taskTitle}
+                selectedSection={selectedSection}
+                settings={settings}
+                checking={checkingTask}
+                englishStatus={englishStatus}
+                onChange={setTaskTitle}
+                onSectionChange={setSelectedSection}
+                onAdd={addTask}
+                onFixSpelling={fixTaskTitle}
+              />
+            </div>
+
+            <section>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div>
+                  <h2 className="text-base font-semibold text-zinc-950">Today Plan</h2>
+                  <p className="mt-0.5 text-xs text-zinc-500">Compact section cards for today&apos;s work.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setView("history")}
+                  className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+                >
+                  History
+                </button>
+              </div>
+
+              {allDone && (
+                <div className="mb-3 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-center">
+                  <p className="text-sm font-medium text-teal-800">All done for today.</p>
+                  <p className="mt-0.5 text-xs text-teal-600">
+                    Great work. Take a break or add more tasks.
+                  </p>
+                </div>
+              )}
+
+              {today.tasks.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-8 text-center shadow-sm">
+                  <p className="text-sm font-medium text-zinc-500">No tasks planned yet.</p>
+                  <p className="mt-1 text-xs text-zinc-400">Add a task above to start filling Today Plan.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {visibleSections.map((section) => (
+                    <SectionGroup
+                      key={section.id}
+                      name={settings.sectionNames[section.id]}
+                      tasks={section.tasks}
+                      activeTaskId={activeTaskId}
+                      onStart={handleStartFocus}
+                      onToggle={toggleTask}
+                      onDelete={deleteTask}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <DistractionNote
+              value={today.distractionNote}
+              checking={checkingNote}
+              onChange={(value) =>
+                updateToday((record) => ({ ...record, distractionNote: value }))
+              }
+              onFixSpelling={fixDistractionNote}
+            />
+          </>
+        ) : (
+          <DailyRecords records={previousRecords} settings={settings} />
+        )}
       </div>
 
       {settingsOpen && (
