@@ -1,5 +1,4 @@
 import type { FocusTask, SectionId } from "@/lib/storage";
-import type { TaskTimerProps } from "./TaskTimer";
 import { TaskRow } from "./TaskRow";
 
 type SectionGroupProps = {
@@ -7,35 +6,43 @@ type SectionGroupProps = {
   name: string;
   tasks: FocusTask[];
   activeTaskId: string | null;
-  timerProps: Omit<TaskTimerProps, "taskId" | "isActive">;
+  onStart: (id: string) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
 };
 
-export function SectionGroup({ name, tasks, activeTaskId, timerProps, onToggle, onDelete }: SectionGroupProps) {
+export function SectionGroup({ name, tasks, activeTaskId, onStart, onToggle, onDelete }: SectionGroupProps) {
+  const doneCount = tasks.filter((t) => t.done).length;
+
   return (
     <div>
       <div className="flex items-center gap-3 border-b border-zinc-100 bg-stone-50 px-4 py-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{name}</span>
         {tasks.length > 0 && (
-          <span className="ml-auto text-xs text-zinc-400">{tasks.filter(t => t.done).length}/{tasks.length}</span>
+          <span className="ml-auto text-xs text-zinc-400">
+            {doneCount}/{tasks.length}
+          </span>
         )}
       </div>
+
       {tasks.length === 0 ? (
-        <div className="px-4 py-4 text-center text-xs text-zinc-400">No tasks yet</div>
-      ) : (
-        <div className="divide-y divide-zinc-100">
-          {tasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              activeTaskId={activeTaskId}
-              timerProps={timerProps}
-              onToggle={onToggle}
-              onDelete={onDelete}
-            />
-          ))}
+        <div className="px-4 py-5 text-center">
+          <p className="text-xs text-zinc-400">No tasks yet</p>
         </div>
+      ) : (
+        <ul className="divide-y divide-zinc-100">
+          {tasks.map((task) => (
+            <li key={task.id}>
+              <TaskRow
+                task={task}
+                isActive={activeTaskId === task.id}
+                onStart={onStart}
+                onToggle={onToggle}
+                onDelete={onDelete}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
