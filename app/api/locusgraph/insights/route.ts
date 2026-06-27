@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await lg.generateInsights(body as InsightQuery);
+    const result = await lg.generateInsights({ task: body.task } as InsightQuery);
     return Response.json(result);
   } catch (err) {
     console.error(err);

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await lg.storeEvent(body as unknown as CreateEventApiRequest);
+    const result = await lg.storeEvent({ event_kind: body.event_kind } as CreateEventApiRequest);
     return Response.json(result);
   } catch (err) {
     console.error(err);

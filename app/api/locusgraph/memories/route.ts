@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await lg.retrieveMemories(body as ContextQuery);
+    const result = await lg.retrieveMemories({ query: body.query } as ContextQuery);
     return Response.json(result);
   } catch (err) {
     console.error(err);

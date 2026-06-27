@@ -13,6 +13,10 @@ export async function POST(request: Request) {
     return Response.json({ error: 'events must be a non-empty array' }, { status: 400 });
   }
 
+  if (!body.events.every(e => e !== null && typeof e === 'object' && typeof (e as { event_kind?: unknown }).event_kind === 'string')) {
+    return Response.json({ error: 'each event must have a string event_kind' }, { status: 400 });
+  }
+
   try {
     const result = await lg.storeEventsBatch(
       body.events as BatchEventItem[],
