@@ -6,11 +6,13 @@ import {
   DayRecord,
   FocusTask,
   LedgerState,
-  loadLedger,
+  pushCompletedSession,
+  pushLedger,
   saveLedger,
   SectionId,
   todayKey,
 } from "@/lib/storage";
+import { useLedger } from "@/lib/useLedger";
 import { AppSettings, loadSettings, saveSettings, SECTION_ORDER } from "@/lib/settings";
 import {
   expireSession,
@@ -39,7 +41,8 @@ function uid() {
 }
 
 export default function Home() {
-  const [ledger, setLedger] = useState<LedgerState>({ days: {} });
+  const load = useLedger();
+  const [ledger, setLedger] = useState<LedgerState>(() => load.ledger ?? { days: {} });
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
@@ -47,7 +50,6 @@ export default function Home() {
   const [checkingTask, setCheckingTask] = useState(false);
   const [checkingNote, setCheckingNote] = useState(false);
   const [englishStatus, setEnglishStatus] = useState("");
-  const [storageReady, setStorageReady] = useState(false);
   const [view, setView] = useState<ViewMode>("today");
 
   const [session, setSession] = useState<SessionState>({ status: "idle" });
@@ -58,6 +60,7 @@ export default function Home() {
   const prevSessionRef = useRef<SessionState>({ status: "idle" });
   const markedDoneRef = useRef(false);
   const hasMountedRef = useRef(false);
+  const prevLedgerRef = useRef<LedgerState>(load.ledger ?? { days: {} });
 
   const date = todayKey();
   const today = ledger.days[date] ?? createEmptyDay(date);
@@ -81,27 +84,31 @@ export default function Home() {
     sessionRef.current = session;
   });
 
-  // Load localStorage on mount
+  // Restore session from localStorage on mount
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const loadedLedger = loadLedger();
-    if (!loadedLedger.days[date]) {
-      loadedLedger.days[date] = createEmptyDay(date);
-    }
-    setLedger(loadedLedger);
-
     const restored = loadSession();
     setSession(restored);
     sessionRef.current = restored;
     prevSessionRef.current = restored;
-    setStorageReady(true);
-  }, [date]);
+  }, []);
+
+  // Sync fresh LocusGraph data into local ledger state
+  // Pre-seed prevLedgerRef so the persist effect sees no diff for this update
+  useEffect(() => {
+    if (load.status === "fresh" && load.ledger != null) {
+      prevLedgerRef.current = load.ledger;
+      setLedger(load.ledger);
+    }
+  }, [load.status]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Persist ledger
+  // Persist ledger and push diff to LocusGraph
   useEffect(() => {
     if (Object.keys(ledger.days).length > 0) {
       saveLedger(ledger);
+      void pushLedger(prevLedgerRef.current, ledger);
+      prevLedgerRef.current = ledger;
     }
   }, [ledger]);
 
@@ -142,6 +149,7 @@ export default function Home() {
       !markedDoneRef.current
     ) {
       addFocusMinutes(Math.round(prev.durationMs / 60000));
+      void pushCompletedSession(prev.taskId, date, prev.durationMs);
     }
     markedDoneRef.current = false;
 
@@ -299,7 +307,7 @@ export default function Home() {
     .filter((record) => record.date !== date)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  if (!storageReady) {
+  if (load.status === "loading" && !load.ledger) {
     return (
       <main className="flex min-h-screen items-center justify-center px-5">
         <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 shadow-sm">
