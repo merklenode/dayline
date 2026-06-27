@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     );
     return Response.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return Response.json({ error: message }, { status: 500 });
+    console.error(err);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
