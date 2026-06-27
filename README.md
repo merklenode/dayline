@@ -1,16 +1,16 @@
 # Dayline
 
-A simple daily focus system for building routine and visible progress.
+A scheduled daily focus system for building routine and visible progress.
 
 ## Why This Exists
 
-Dayline is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It avoids complex productivity features and focuses on the basics:
+Dayline is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It uses a fixed 9:00 AM to 7:00 PM workday so the user always knows what block should be active.
 
-- plan today's tasks
-- run a 25-minute focus timer
-- track focused minutes
-- write distraction notes
-- review the last 7 days
+- follow a time-blocked daily schedule
+- edit each block heading
+- add topics/tasks to each block
+- see the active block and remaining time
+- keep progress in browser localStorage
 
 ## Tech Stack
 
@@ -30,9 +30,9 @@ Open `http://localhost:3000`.
 
 ## MVP Acceptance Criteria
 
-- Add, complete, and delete today's tasks.
-- Run focus and break timers.
-- Add focus minutes automatically after a full focus sprint.
-- Save progress in localStorage.
-- Show a 7-day focus summary.
+- Render the full 9:00 AM to 7:00 PM daily schedule.
+- Derive the active block from the current clock time.
+- Preserve heading edits and block tasks in localStorage.
+- Add, complete, and delete topics per schedule block.
+- Show before-start and day-complete states.
 - Deploy cleanly on Vercel.
