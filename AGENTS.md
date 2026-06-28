@@ -7,7 +7,20 @@ These instructions apply only to this repository: `merklenode/dayline`.
 - `main` is production.
 - `dev` is the integration and preview branch.
 - Do not implement feature work directly on `main`.
+- Agents may automatically create, check out, pull, commit, and push the `dev` branch for normal development work.
 - Create or update work on `dev`, then open a PR to `main` only after manual preview testing.
+- Never push directly to `main` without explicit user approval.
+- Never merge into `main` without explicit user approval.
+
+## Automation And Authentication
+
+- Moa commands, GitHub CLI commands, and normal git commands are pre-approved for repository workflow automation when they operate on `dev`, issues, PRs, CI checks, or previews.
+- Do not stop to ask the user before running Moa, `gh`, or git commands that are part of the documented `dev` workflow.
+- If Moa, `gh`, Vercel, or git authentication is already available in the environment, use it directly.
+- Do not ask the user for credentials, tokens, or interactive login unless the command fails because authentication is missing or expired.
+- If authentication is missing, expired, or blocked, report the exact blocker and the command that failed.
+- Destructive git operations still require explicit user approval, including force push, branch deletion, hard reset, and deleting remote refs.
+- Production actions still require explicit user approval, including production Vercel deploys, merging to `main`, and pushing directly to `main`.
 
 ## Required Automation Path
 
@@ -18,14 +31,14 @@ For non-trivial product or code changes, use this order:
 3. Create a GitHub issue from the approved plan.
 4. Use Moa workflow execution for issue-based implementation when the repo is available to Moa.
 5. Verify locally.
-6. Push to `dev`.
+6. Commit and push to `dev`.
 7. Deploy or confirm a Vercel preview for `dev`.
 8. Manually test the preview.
 9. Only then open or merge toward `main`.
 
 ## Moa Usage
 
-Prefer Moa for GitHub-tracked work:
+Prefer Moa for GitHub-tracked work. Run these automatically when they are part of the approved `dev` workflow:
 
 ```bash
 moa oracle consult product-designer,frontend-engineer,testing-engineer "<planning question>"
@@ -41,6 +54,7 @@ If Moa reports that `merklenode/dayline` is not on the workspace allowlist, stop
 ## GitHub CLI Usage
 
 Use `gh` only when Moa cannot perform the GitHub action or when direct repository inspection is needed.
+Run `gh` automatically for issue, PR, branch, and CI inspection when credentials are already available.
 
 Useful commands:
 
@@ -113,5 +127,6 @@ The active plan is:
 See:
 
 ```text
-docs/simple-dayline-ux-plan.md
+docs/recent-implementation/README.md
+docs/upgrading-plan/README.md
 ```
