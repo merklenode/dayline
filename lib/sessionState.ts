@@ -34,7 +34,11 @@ export function saveSession(state: SessionState) {
   if (state.status === "idle") {
     window.localStorage.removeItem(SESSION_KEY);
   } else {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(state));
+    try {
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn("saveSession: localStorage write failed", e);
+    }
   }
 }
 
