@@ -4,7 +4,6 @@ import {
   fetchLedger,
   LedgerState,
   loadLedger,
-  saveLedger,
   todayKey,
 } from "./storage";
 
@@ -32,7 +31,6 @@ export function useLedger(): LedgerLoad {
       try {
         const fresh = await fetchLedger();
         if (cancelled) return;
-        saveLedger(fresh);
         setState({ status: "fresh", ledger: fresh });
       } catch {
         if (cancelled) return;

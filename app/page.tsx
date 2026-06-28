@@ -61,6 +61,7 @@ export default function Home() {
   const markedDoneRef = useRef(false);
   const hasMountedRef = useRef(false);
   const prevLedgerRef = useRef<LedgerState>(load.ledger ?? { days: {} });
+  const initialLedgerRef = useRef(ledger);
 
   const date = todayKey();
   const today = ledger.days[date] ?? createEmptyDay(date);
@@ -93,12 +94,17 @@ export default function Home() {
     prevSessionRef.current = restored;
   }, []);
 
-  // Sync fresh LocusGraph data into local ledger state
-  // Pre-seed prevLedgerRef so the persist effect sees no diff for this update
+  // Sync fresh LocusGraph data into local ledger state, but only if the user
+  // hasn't made any local edits yet (detected by reference equality against the
+  // initial snapshot). Pre-seed prevLedgerRef inside the updater so the persist
+  // effect sees no diff for this update.
   useEffect(() => {
     if (load.status === "fresh" && load.ledger != null) {
-      prevLedgerRef.current = load.ledger;
-      setLedger(load.ledger);
+      setLedger((current) => {
+        if (current !== initialLedgerRef.current) return current;
+        prevLedgerRef.current = load.ledger!;
+        return load.ledger!;
+      });
     }
   }, [load.status]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */

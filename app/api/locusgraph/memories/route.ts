@@ -5,10 +5,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   try {
     const upstream = await proxyToLocusGraph("/memories", body);
-    const data = (await upstream.json()) as unknown;
     if (!upstream.ok) {
+      const data = (await upstream.json().catch(() => ({}))) as unknown;
       return NextResponse.json(data, { status: upstream.status });
     }
+    const data = (await upstream.json()) as unknown;
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(

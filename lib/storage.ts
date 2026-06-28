@@ -198,11 +198,14 @@ export async function pushLedger(prev: LedgerState, next: LedgerState): Promise<
   const events = diffToEvents(prev, next);
   if (!events.length) return;
   try {
-    await fetch("/api/locusgraph/events-batch", {
+    const res = await fetch("/api/locusgraph/events-batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ events }),
     });
+    if (!res.ok) {
+      console.warn("[dayline] pushLedger failed:", res.status);
+    }
   } catch (err) {
     console.warn("[dayline] pushLedger failed:", err);
   }
