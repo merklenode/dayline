@@ -6,7 +6,9 @@ export async function proxyToLocusGraph(path: string, body: unknown): Promise<Re
     throw new Error("LOCUSGRAPH_API_URL is not configured");
   }
 
-  return fetch(`${baseUrl}${path}`, {
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+
+  return fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

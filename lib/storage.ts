@@ -90,6 +90,38 @@ export function saveLedger(state: LedgerState) {
   }
 }
 
+function mergeDayRecords(local: DayRecord, remote: DayRecord): DayRecord {
+  const tasksById = new Map<string, FocusTask>();
+  for (const task of remote.tasks) tasksById.set(task.id, task);
+  for (const task of local.tasks) tasksById.set(task.id, task);
+
+  return {
+    date: local.date,
+    tasks: Array.from(tasksById.values()),
+    focusMinutes: Math.max(local.focusMinutes, remote.focusMinutes),
+    distractionNote: local.distractionNote || remote.distractionNote,
+    closedAt: local.closedAt ?? remote.closedAt,
+  };
+}
+
+export function mergeLedgers(local: LedgerState, remote: LedgerState): LedgerState {
+  const days: Record<string, DayRecord> = {};
+  const dates = new Set([...Object.keys(remote.days), ...Object.keys(local.days)]);
+
+  for (const date of dates) {
+    const localDay = local.days[date];
+    const remoteDay = remote.days[date];
+
+    if (localDay && remoteDay) {
+      days[date] = mergeDayRecords(localDay, remoteDay);
+    } else {
+      days[date] = localDay ?? remoteDay;
+    }
+  }
+
+  return { days };
+}
+
 // ── LocusGraph async layer ────────────────────────────────────────────────────
 
 type LocusGraphMemory =
@@ -218,7 +250,7 @@ export async function pushLedger(prev: LedgerState, next: LedgerState): Promise<
 
 export async function pushCompletedSession(taskId: string, date: string, durationMs: number): Promise<void> {
   try {
-    await fetch("/api/locusgraph/events", {
+    const res = await fetch("/api/locusgraph/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -229,6 +261,9 @@ export async function pushCompletedSession(taskId: string, date: string, duratio
         occurredAt: new Date().toISOString(),
       }),
     });
+    if (!res.ok) {
+      console.warn("[dayline] pushCompletedSession failed:", res.status);
+    }
   } catch (err) {
     console.warn("[dayline] pushCompletedSession failed:", err);
   }

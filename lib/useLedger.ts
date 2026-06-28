@@ -4,6 +4,7 @@ import {
   fetchLedger,
   LedgerState,
   loadLedger,
+  mergeLedgers,
   todayKey,
 } from "./storage";
 
@@ -15,13 +16,14 @@ export type LedgerLoad =
 export function useLedger(): LedgerLoad {
   const [state, setState] = useState<LedgerLoad>(() => {
     const cached = loadLedger();
+    const hasCachedDays = Object.keys(cached.days).length > 0;
     const date = todayKey();
-    if (!cached.days[date]) {
+    if (hasCachedDays && !cached.days[date]) {
       cached.days[date] = createEmptyDay(date);
     }
     return {
       status: "loading",
-      ledger: Object.keys(cached.days).length > 0 ? cached : null,
+      ledger: hasCachedDays ? cached : null,
     };
   });
 
@@ -31,7 +33,10 @@ export function useLedger(): LedgerLoad {
       try {
         const fresh = await fetchLedger();
         if (cancelled) return;
-        setState({ status: "fresh", ledger: fresh });
+        setState((current) => ({
+          status: "fresh",
+          ledger: current.ledger ? mergeLedgers(current.ledger, fresh) : fresh,
+        }));
       } catch {
         if (cancelled) return;
         setState((s) =>
