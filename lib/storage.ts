@@ -82,6 +82,7 @@ export function loadLedger(): LedgerState {
 }
 
 export function saveLedger(state: LedgerState) {
+  if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {

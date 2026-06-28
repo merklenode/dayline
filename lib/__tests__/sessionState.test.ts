@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  loadSession,
   startFocus,
   startBreak,
   pauseSession,
@@ -20,6 +21,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   localStorage.clear();
 });
 
@@ -169,14 +171,14 @@ describe("msLeft", () => {
 
 describe("saveSession error resilience", () => {
   it("does not throw when localStorage.setItem fails", () => {
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("QuotaExceededError");
     });
     expect(() => saveSession(startFocus("task-1", 25 * 60_000))).not.toThrow();
   });
 
   it("warns to console when localStorage.setItem fails", () => {
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("QuotaExceededError");
     });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -185,5 +187,90 @@ describe("saveSession error resilience", () => {
       "saveSession: localStorage write failed",
       expect.any(DOMException)
     );
+  });
+});
+
+describe("loadSession", () => {
+  it("returns idle when localStorage is empty", () => {
+    expect(loadSession()).toEqual({ status: "idle" });
+  });
+
+  it("returns idle when stored JSON is malformed", () => {
+    localStorage.setItem("dayline:session", "{not-valid-json");
+    expect(loadSession()).toEqual({ status: "idle" });
+  });
+
+  it("returns idle when parsed object has no status field", () => {
+    localStorage.setItem("dayline:session", JSON.stringify({ phase: "focus" }));
+    expect(loadSession()).toEqual({ status: "idle" });
+  });
+
+  it("returns idle for an unknown status value", () => {
+    localStorage.setItem("dayline:session", JSON.stringify({ status: "unknown" }));
+    expect(loadSession()).toEqual({ status: "idle" });
+  });
+
+  it("passes through a paused session unchanged", () => {
+    const paused = {
+      status: "paused" as const,
+      phase: "focus" as const,
+      taskId: "task-1",
+      remainingMs: 8_000,
+      durationMs: 25 * 60_000,
+    };
+    saveSession(paused);
+    expect(loadSession()).toEqual(paused);
+  });
+
+  it("passes through a complete session unchanged", () => {
+    const complete = {
+      status: "complete" as const,
+      phase: "focus" as const,
+      taskId: "task-1",
+    };
+    saveSession(complete);
+    expect(loadSession()).toEqual(complete);
+  });
+
+  it("returns a running session unchanged when endsAt is in the future", () => {
+    const session = {
+      status: "running" as const,
+      phase: "focus" as const,
+      taskId: "task-1",
+      endsAt: FIXED_NOW + 5_000,
+      durationMs: 25 * 60_000,
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+  });
+
+  it("auto-expires a running session to complete when endsAt has passed", () => {
+    const session = {
+      status: "running" as const,
+      phase: "focus" as const,
+      taskId: "task-1",
+      endsAt: FIXED_NOW - 1,
+      durationMs: 25 * 60_000,
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual({
+      status: "complete",
+      phase: "focus",
+      taskId: "task-1",
+    });
+  });
+
+  it("returns idle when a running session has a non-numeric endsAt", () => {
+    localStorage.setItem(
+      "dayline:session",
+      JSON.stringify({
+        status: "running",
+        phase: "focus",
+        taskId: "task-1",
+        endsAt: null,
+        durationMs: 25 * 60_000,
+      })
+    );
+    expect(loadSession()).toEqual({ status: "idle" });
   });
 });
