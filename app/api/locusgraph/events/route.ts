@@ -31,7 +31,7 @@ function toStoreEventRequest(body: DaylineEvent): CreateEventApiRequest {
 
   return {
     graph_id: graphId,
-    event_kind: body.event_kind ?? body.operation ?? "fact",
+    event_kind: body.event_kind ?? (body.operation === "focus_session" ? "completed" : "fact"),
     context_id: body.context_id ?? body.contextId,
     payload,
     timestamp: body.timestamp ?? body.occurredAt,

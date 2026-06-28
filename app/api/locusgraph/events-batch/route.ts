@@ -24,7 +24,7 @@ function toBatchEventItem(event: DaylineEvent): BatchEventItem {
   };
 
   return {
-    event_kind: event.event_kind ?? event.operation ?? "fact",
+    event_kind: event.event_kind ?? (event.operation === "delete" ? "action" : "fact"),
     context_id: event.context_id ?? event.contextId,
     payload,
     timestamp: event.timestamp ?? event.occurredAt,

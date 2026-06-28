@@ -138,6 +138,12 @@ type LocusGraphEvent = {
   occurredAt: string;
 };
 
+let syncDisabledForSession = false;
+
+export function isLocusGraphEnabled() {
+  return process.env.NEXT_PUBLIC_LOCUSGRAPH_ENABLED === "true";
+}
+
 function parseMemoryList(memories: LocusGraphMemory[] | string): LocusGraphMemory[] {
   if (Array.isArray(memories)) return memories;
 
@@ -243,6 +249,10 @@ function diffToEvents(prev: LedgerState, next: LedgerState): LocusGraphEvent[] {
 }
 
 export async function fetchLedger(): Promise<LedgerState> {
+  if (!isLocusGraphEnabled() || syncDisabledForSession) {
+    return { days: {} };
+  }
+
   const res = await fetch("/api/locusgraph/memories", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -258,6 +268,8 @@ export async function fetchLedger(): Promise<LedgerState> {
 }
 
 export async function pushLedger(prev: LedgerState, next: LedgerState): Promise<void> {
+  if (!isLocusGraphEnabled() || syncDisabledForSession) return;
+
   const events = diffToEvents(prev, next);
   if (!events.length) return;
   try {
@@ -267,14 +279,18 @@ export async function pushLedger(prev: LedgerState, next: LedgerState): Promise<
       body: JSON.stringify({ events }),
     });
     if (!res.ok) {
-      console.warn("[dayline] pushLedger failed:", res.status);
+      syncDisabledForSession = true;
+      console.warn("[dayline] pushLedger failed; disabling LocusGraph sync for this tab:", res.status, await res.text().catch(() => ""));
     }
   } catch (err) {
+    syncDisabledForSession = true;
     console.warn("[dayline] pushLedger failed:", err);
   }
 }
 
 export async function pushCompletedSession(taskId: string, date: string, durationMs: number): Promise<void> {
+  if (!isLocusGraphEnabled() || syncDisabledForSession) return;
+
   try {
     const res = await fetch("/api/locusgraph/events", {
       method: "POST",
@@ -288,9 +304,11 @@ export async function pushCompletedSession(taskId: string, date: string, duratio
       }),
     });
     if (!res.ok) {
-      console.warn("[dayline] pushCompletedSession failed:", res.status);
+      syncDisabledForSession = true;
+      console.warn("[dayline] pushCompletedSession failed; disabling LocusGraph sync for this tab:", res.status, await res.text().catch(() => ""));
     }
   } catch (err) {
+    syncDisabledForSession = true;
     console.warn("[dayline] pushCompletedSession failed:", err);
   }
 }
