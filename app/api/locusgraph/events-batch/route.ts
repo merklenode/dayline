@@ -1,15 +1,48 @@
 import { NextResponse } from "next/server";
-import { proxyToLocusGraph } from "@/lib/locusgraph-proxy";
+import type { BatchEventItem } from "@locusgraph/client";
+import { getLocusGraphClient } from "@/lib/locusgraph";
+
+type DaylineEvent = {
+  contextId?: string;
+  context_id?: string;
+  contextType?: string;
+  operation?: string;
+  event_kind?: string;
+  data?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  occurredAt?: string;
+  timestamp?: string;
+};
+
+function toBatchEventItem(event: DaylineEvent): BatchEventItem {
+  const payload = event.payload ?? {
+    data: {
+      ...(event.data ?? {}),
+      contextType: event.contextType,
+      operation: event.operation,
+    },
+  };
+
+  return {
+    event_kind: event.event_kind ?? event.operation ?? "fact",
+    context_id: event.context_id ?? event.contextId,
+    payload,
+    timestamp: event.timestamp ?? event.occurredAt,
+  };
+}
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as { events?: DaylineEvent[]; graph_id?: string } | null;
+  if (!body || !Array.isArray(body.events)) {
+    return NextResponse.json({ error: "events must be an array" }, { status: 400 });
+  }
+
   try {
-    const upstream = await proxyToLocusGraph("/events-batch", body);
-    if (!upstream.ok) {
-      const data = (await upstream.json().catch(() => ({}))) as unknown;
-      return NextResponse.json(data, { status: upstream.status });
-    }
-    return new NextResponse(null, { status: 204 });
+    const result = await getLocusGraphClient().storeEventsBatch(
+      body.events.map(toBatchEventItem),
+      body.graph_id
+    );
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "LocusGraph unavailable" },

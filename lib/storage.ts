@@ -128,7 +128,7 @@ type LocusGraphMemory =
   | { contextId: string; contextType: "task"; data: FocusTask & { date: string } }
   | { contextId: string; contextType: "day"; data: { date: string; focusMinutes: number; distractionNote: string; closedAt?: string } };
 
-type LocusGraphMemoriesResponse = { memories: LocusGraphMemory[] };
+type LocusGraphMemoriesResponse = { memories: LocusGraphMemory[] | string };
 
 type LocusGraphEvent = {
   contextId: string;
@@ -138,11 +138,32 @@ type LocusGraphEvent = {
   occurredAt: string;
 };
 
+function parseMemoryList(memories: LocusGraphMemory[] | string): LocusGraphMemory[] {
+  if (Array.isArray(memories)) return memories;
+
+  try {
+    const parsed = JSON.parse(memories) as unknown;
+    if (Array.isArray(parsed)) return parsed as LocusGraphMemory[];
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as { memories?: unknown }).memories)
+    ) {
+      return (parsed as { memories: LocusGraphMemory[] }).memories;
+    }
+  } catch {
+    // LocusGraph can return rendered text; keep local data if it is not JSON.
+  }
+
+  return [];
+}
+
 function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerState {
   const days: Record<string, DayRecord> = {};
+  const memories = parseMemoryList(res.memories);
 
   // First pass: build day scaffolding
-  for (const m of res.memories) {
+  for (const m of memories) {
     if (m.contextType === "day") {
       const { date, ...rest } = m.data;
       days[date] = { date, tasks: [], focusMinutes: rest.focusMinutes, distractionNote: rest.distractionNote, ...(rest.closedAt ? { closedAt: rest.closedAt } : {}) };
@@ -150,7 +171,7 @@ function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerState {
   }
 
   // Second pass: attach tasks to their parent day
-  for (const m of res.memories) {
+  for (const m of memories) {
     if (m.contextType === "task") {
       const { date, ...taskData } = m.data;
       if (!days[date]) {
@@ -225,7 +246,12 @@ export async function fetchLedger(): Promise<LedgerState> {
   const res = await fetch("/api/locusgraph/memories", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contextTypes: { type: ["task", "day"] }, format: "json" }),
+    body: JSON.stringify({
+      query: "Dayline task and day records",
+      contextTypes: { type: ["task", "day"] },
+      format: "json",
+      limit: 100,
+    }),
   });
   if (!res.ok) throw new Error(await res.text());
   return remapMemoriesToLedger((await res.json()) as LocusGraphMemoriesResponse);

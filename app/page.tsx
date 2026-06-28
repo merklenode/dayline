@@ -95,19 +95,18 @@ export default function Home() {
     prevSessionRef.current = restored;
   }, []);
 
-  // Sync fresh LocusGraph data into local ledger state, but only if the user
-  // hasn't made any local edits yet (detected by reference equality against the
-  // initial snapshot). Pre-seed prevLedgerRef inside the updater so the persist
-  // effect sees no diff for this update.
+  // Sync cached/fresh ledger data after hydration, but only if the user hasn't
+  // made local edits yet. Pre-seed prevLedgerRef so this load doesn't push a diff.
   useEffect(() => {
-    if (load.status === "fresh" && load.ledger != null) {
+    if (load.ledger != null) {
       setLedger((current) => {
         if (current !== initialLedgerRef.current) return current;
+        initialLedgerRef.current = load.ledger!;
         prevLedgerRef.current = load.ledger!;
         return load.ledger!;
       });
     }
-  }, [load.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [load.ledger]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist ledger and push diff to LocusGraph
