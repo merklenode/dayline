@@ -1,19 +1,19 @@
-import { lg } from '@/lib/locusgraph';
-
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import { proxyToLocusGraph } from "@/lib/locusgraph-proxy";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { event_kind?: string; graph_id?: string } | null;
-
-  if (!body || typeof body.event_kind !== 'string') {
-    return Response.json({ error: 'event_kind is required' }, { status: 400 });
-  }
-
+  const body = await request.json().catch(() => null);
   try {
-    const result = await lg.storeEvent({ event_kind: body.event_kind }, body.graph_id);
-    return Response.json(result);
+    const upstream = await proxyToLocusGraph("/events", body);
+    if (!upstream.ok) {
+      const data = (await upstream.json().catch(() => ({}))) as unknown;
+      return NextResponse.json(data, { status: upstream.status });
+    }
+    return new NextResponse(null, { status: 204 });
   } catch (err) {
-    console.error(err);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "LocusGraph unavailable" },
+      { status: 502 }
+    );
   }
 }
