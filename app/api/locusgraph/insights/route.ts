@@ -19,6 +19,10 @@ type InsightResult = {
   recommendation: string;
 };
 
+const ipRateLimit = new Map<string, number[]>();
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT = 20;
+
 const SYSTEM_PROMPT = `You are a personal productivity assistant. Analyze the provided 7-day work history from a daily planner app and return a JSON object with exactly two keys:
 - "insight": one sentence identifying a notable pattern (e.g. recurring distraction, section imbalance, unfinished tasks)
 - "recommendation": one sentence of actionable advice for today's planning
@@ -64,7 +68,25 @@ export async function POST(request: Request) {
     return NextResponse.json({});
   }
 
-  const body = (await request.json().catch(() => null)) as InsightsRequestBody | null;
+  if (request.headers.get("x-requested-with") !== "dayline") {
+    return NextResponse.json({}, { status: 403 });
+  }
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  const now = Date.now();
+  const timestamps = (ipRateLimit.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  timestamps.push(now);
+  ipRateLimit.set(ip, timestamps);
+  if (timestamps.length > RATE_LIMIT) {
+    return NextResponse.json({}, { status: 429 });
+  }
+
+  const rawBody = await request.text().catch(() => null);
+  if (rawBody === null || rawBody.length > 32 * 1024) {
+    return NextResponse.json({}, { status: rawBody === null ? 400 : 413 });
+  }
+  let body: InsightsRequestBody | null = null;
+  try { body = JSON.parse(rawBody) as InsightsRequestBody; } catch { /* invalid JSON */ }
   const days = body?.days ?? {};
 
   const userPrompt = buildUserPrompt(days);

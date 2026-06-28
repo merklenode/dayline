@@ -19,7 +19,6 @@ function getLast7DaysKeys(): string[] {
 export function OracleCard({ enabled }: { enabled: boolean }) {
   const [data, setData] = useState<OracleData | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!enabled) return;
 
@@ -30,11 +29,11 @@ export function OracleCard({ enabled }: { enabled: boolean }) {
         const parsed = JSON.parse(hit) as Partial<OracleData>;
         if (typeof parsed.insight === "string" && parsed.insight) {
           setData({ insight: parsed.insight, recommendation: parsed.recommendation ?? "" });
+          return;
         }
       } catch {
         // malformed cache — fall through to fetch
       }
-      return;
     }
 
     const ledger = loadLedger();
@@ -45,7 +44,7 @@ export function OracleCard({ enabled }: { enabled: boolean }) {
 
     fetch("/api/locusgraph/insights", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Requested-With": "dayline" },
       body: JSON.stringify({ days }),
     })
       .then((r) => r.json())
@@ -62,7 +61,6 @@ export function OracleCard({ enabled }: { enabled: boolean }) {
       })
       .catch(() => {});
   }, [enabled]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!data) return null;
 
