@@ -5,12 +5,13 @@ type SectionGroupProps = {
   name: string;
   tasks: FocusTask[];
   activeTaskId: string | null;
+  isToday: boolean;
   onStart: (id: string) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
 };
 
-export function SectionGroup({ name, tasks, activeTaskId, onStart, onToggle, onDelete }: SectionGroupProps) {
+export function SectionGroup({ name, tasks, activeTaskId, isToday, onStart, onToggle, onDelete }: SectionGroupProps) {
   const doneCount = tasks.filter((t) => t.done).length;
 
   return (
@@ -31,6 +32,7 @@ export function SectionGroup({ name, tasks, activeTaskId, onStart, onToggle, onD
             <TaskRow
               task={task}
               isActive={activeTaskId === task.id}
+              isToday={isToday}
               onStart={onStart}
               onToggle={onToggle}
               onDelete={onDelete}
