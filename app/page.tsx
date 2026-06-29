@@ -35,10 +35,19 @@ import { CurrentSessionCard } from "@/components/CurrentSessionCard";
 import { DailyRecords } from "@/components/DailyRecords";
 import { OracleCard } from "@/components/OracleCard";
 
-type ViewMode = "today" | "history";
+type ViewMode = "today" | "history" | "upcoming";
 
 function uid() {
   return crypto.randomUUID();
+}
+
+function formatDate(d: string) {
+  return new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default function Home() {
@@ -48,6 +57,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedSection, setSelectedSection] = useState<SectionId>("execution");
+  const [selectedDate, setSelectedDate] = useState(todayKey);
   const [checkingTask, setCheckingTask] = useState(false);
   const [checkingNote, setCheckingNote] = useState(false);
   const [englishStatus, setEnglishStatus] = useState("");
@@ -68,17 +78,26 @@ export default function Home() {
   const today = ledger.days[date] ?? createEmptyDay(date);
 
   // Helper functions declared before effects that call them
-  function updateToday(updater: (record: DayRecord) => DayRecord) {
+  function updateDay(dateKey: string, updater: (record: DayRecord) => DayRecord) {
     setLedger((current) => ({
       days: {
         ...current.days,
-        [date]: updater(current.days[date] ?? createEmptyDay(date)),
+        [dateKey]: updater(current.days[dateKey] ?? createEmptyDay(dateKey)),
       },
     }));
   }
 
+  function updateToday(updater: (record: DayRecord) => DayRecord) {
+    updateDay(date, updater);
+  }
+
   function addFocusMinutes(minutes: number) {
     updateToday((record) => ({ ...record, focusMinutes: record.focusMinutes + minutes }));
+  }
+
+  // Find which day a task belongs to (needed for cross-day toggle/delete)
+  function taskDay(id: string): string {
+    return Object.keys(ledger.days).find((d) => ledger.days[d].tasks.some((t) => t.id === id)) ?? date;
   }
 
   // Keep sessionRef current after every commit (not during render)
@@ -209,7 +228,7 @@ export default function Home() {
 
   function addTask() {
     const cleanTitle = taskTitle.trim();
-    if (!cleanTitle) return;
+    if (!cleanTitle || !selectedDate) return; // guard against blank date
 
     const task: FocusTask = {
       id: uid(),
@@ -219,7 +238,7 @@ export default function Home() {
       section: selectedSection,
     };
 
-    updateToday((record) => ({ ...record, tasks: [...record.tasks, task] }));
+    updateDay(selectedDate, (record) => ({ ...record, tasks: [...record.tasks, task] }));
     setTaskTitle("");
     setEnglishStatus("");
   }
@@ -228,7 +247,8 @@ export default function Home() {
     if (session.status !== "idle" && session.taskId === id) {
       setSession(stopSession());
     }
-    updateToday((record) => ({
+    const day = taskDay(id);
+    updateDay(day, (record) => ({
       ...record,
       tasks: record.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
     }));
@@ -238,7 +258,8 @@ export default function Home() {
     if (session.status !== "idle" && session.taskId === id) {
       setSession(stopSession());
     }
-    updateToday((record) => ({
+    const day = taskDay(id);
+    updateDay(day, (record) => ({
       ...record,
       tasks: record.tasks.filter((t) => t.id !== id),
     }));
@@ -310,8 +331,11 @@ export default function Home() {
     tasks: today.tasks.filter((t) => t.section === sectionId),
   })).filter((section) => section.tasks.length > 0);
   const previousRecords = Object.values(ledger.days)
-    .filter((record) => record.date !== date)
+    .filter((record) => record.date < date)
     .sort((a, b) => b.date.localeCompare(a.date));
+  const upcomingRecords = Object.values(ledger.days)
+    .filter((record) => record.date > date && record.tasks.length > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   if (load.status === "loading" && !load.ledger) {
     return (
@@ -335,7 +359,7 @@ export default function Home() {
 
       <div className="mx-auto w-full max-w-4xl space-y-5 px-5 py-6 sm:px-8">
         <div className="flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm sm:w-fit">
-          {(["today", "history"] as ViewMode[]).map((mode) => (
+          {(["today", "upcoming", "history"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -369,11 +393,13 @@ export default function Home() {
               <TaskInput
                 value={taskTitle}
                 selectedSection={selectedSection}
+                selectedDate={selectedDate}
                 settings={settings}
                 checking={checkingTask}
                 englishStatus={englishStatus}
                 onChange={setTaskTitle}
                 onSectionChange={setSelectedSection}
+                onDateChange={setSelectedDate}
                 onAdd={addTask}
                 onFixSpelling={fixTaskTitle}
               />
@@ -418,6 +444,7 @@ export default function Home() {
                       name={settings.sectionNames[section.id]}
                       tasks={section.tasks}
                       activeTaskId={activeTaskId}
+                      isToday={true}
                       onStart={handleStartFocus}
                       onToggle={toggleTask}
                       onDelete={deleteTask}
@@ -436,6 +463,50 @@ export default function Home() {
               onFixSpelling={fixDistractionNote}
             />
           </>
+        ) : view === "upcoming" ? (
+          upcomingRecords.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-8 text-center shadow-sm">
+              <p className="text-sm font-medium text-zinc-500">No upcoming tasks.</p>
+              <p className="mt-1 text-xs text-zinc-400">Add a task for Tomorrow or a future date to plan ahead.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {upcomingRecords.map((record) => {
+                const sections = SECTION_ORDER
+                  .map((id) => ({ id, tasks: record.tasks.filter((t) => t.section === id) }))
+                  .filter((s) => s.tasks.length > 0);
+                return (
+                  <section key={record.date}>
+                    <h2 className="mb-3 text-base font-semibold text-zinc-950">{formatDate(record.date)}</h2>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {sections.map((section) => (
+                        <SectionGroup
+                          key={section.id}
+                          name={settings.sectionNames[section.id]}
+                          tasks={section.tasks}
+                          activeTaskId={null}
+                          isToday={false}
+                          onStart={() => {}}
+                          onToggle={(id) =>
+                            updateDay(record.date, (d) => ({
+                              ...d,
+                              tasks: d.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+                            }))
+                          }
+                          onDelete={(id) =>
+                            updateDay(record.date, (d) => ({
+                              ...d,
+                              tasks: d.tasks.filter((t) => t.id !== id),
+                            }))
+                          }
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )
         ) : (
           <DailyRecords records={previousRecords} settings={settings} />
         )}

@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   loadLedger,
   saveLedger,
+  remapMemoriesToLedger,
   STORAGE_KEY,
   STORAGE_KEY_V1,
 } from "../storage";
@@ -123,6 +124,58 @@ describe("loadLedger — V2 direct load", () => {
   it("returns empty ledger when V2 data has no days key", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ something: "else" }));
     expect(loadLedger()).toEqual({ days: {} });
+  });
+});
+
+describe("remapMemoriesToLedger — task ordering", () => {
+  it("sorts tasks by createdAt ascending regardless of memory order", () => {
+    const res = {
+      memories: [
+        {
+          contextId: "t2",
+          contextType: "task" as const,
+          data: { id: "t2", title: "B", done: false, createdAt: "2026-06-29T10:00:00Z", section: "execution" as const, date: "2026-06-29" },
+        },
+        {
+          contextId: "t1",
+          contextType: "task" as const,
+          data: { id: "t1", title: "A", done: false, createdAt: "2026-06-29T09:00:00Z", section: "execution" as const, date: "2026-06-29" },
+        },
+        {
+          contextId: "t3",
+          contextType: "task" as const,
+          data: { id: "t3", title: "C", done: false, createdAt: "2026-06-29T08:00:00Z", section: "plan" as const, date: "2026-06-29" },
+        },
+      ],
+    };
+    const ledger = remapMemoriesToLedger(res);
+    const tasks = ledger.days["2026-06-29"].tasks;
+    expect(tasks.map((t) => t.id)).toEqual(["t3", "t1", "t2"]);
+  });
+
+  it("sorts tasks independently per day", () => {
+    const res = {
+      memories: [
+        {
+          contextId: "d1t2",
+          contextType: "task" as const,
+          data: { id: "d1t2", title: "late", done: false, createdAt: "2026-06-28T11:00:00Z", section: "execution" as const, date: "2026-06-28" },
+        },
+        {
+          contextId: "d1t1",
+          contextType: "task" as const,
+          data: { id: "d1t1", title: "early", done: false, createdAt: "2026-06-28T08:00:00Z", section: "execution" as const, date: "2026-06-28" },
+        },
+        {
+          contextId: "d2t1",
+          contextType: "task" as const,
+          data: { id: "d2t1", title: "only", done: false, createdAt: "2026-06-29T09:00:00Z", section: "execution" as const, date: "2026-06-29" },
+        },
+      ],
+    };
+    const ledger = remapMemoriesToLedger(res);
+    expect(ledger.days["2026-06-28"].tasks.map((t) => t.id)).toEqual(["d1t1", "d1t2"]);
+    expect(ledger.days["2026-06-29"].tasks.map((t) => t.id)).toEqual(["d2t1"]);
   });
 });
 

@@ -4,12 +4,13 @@ import type { FocusTask } from "@/lib/storage";
 type TaskRowProps = {
   task: FocusTask;
   isActive: boolean;
+  isToday: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onStart: (id: string) => void;
 };
 
-export function TaskRow({ task, isActive, onToggle, onDelete, onStart }: TaskRowProps) {
+export function TaskRow({ task, isActive, isToday, onToggle, onDelete, onStart }: TaskRowProps) {
   return (
     <div
       className={`flex min-h-14 items-center gap-3 px-4 py-2.5 transition-colors ${
@@ -37,7 +38,7 @@ export function TaskRow({ task, isActive, onToggle, onDelete, onStart }: TaskRow
         {task.title}
       </span>
 
-      {!task.done && (
+      {!task.done && isToday && (
         isActive ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
             <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />

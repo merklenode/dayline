@@ -1,16 +1,25 @@
 import { Plus, WandSparkles } from "lucide-react";
 import type { SectionId } from "@/lib/storage";
+import { todayKey } from "@/lib/storage";
 import { SECTION_ORDER } from "@/lib/settings";
 import type { AppSettings } from "@/lib/settings";
+
+function tomorrowKey() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return todayKey(d);
+}
 
 type TaskInputProps = {
   value: string;
   selectedSection: SectionId;
+  selectedDate: string;
   settings: AppSettings;
   checking: boolean;
   englishStatus: string;
   onChange: (value: string) => void;
   onSectionChange: (id: SectionId) => void;
+  onDateChange: (date: string) => void;
   onAdd: () => void;
   onFixSpelling: () => void;
 };
@@ -18,14 +27,31 @@ type TaskInputProps = {
 export function TaskInput({
   value,
   selectedSection,
+  selectedDate,
   settings,
   checking,
   englishStatus,
   onChange,
   onSectionChange,
+  onDateChange,
   onAdd,
   onFixSpelling,
 }: TaskInputProps) {
+  const todayVal = todayKey();
+  const tomorrowVal = tomorrowKey();
+
+  const preset =
+    selectedDate === todayVal ? "today"
+    : selectedDate === tomorrowVal ? "tomorrow"
+    : "custom";
+
+  function handlePresetChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const v = e.target.value;
+    if (v === "today") onDateChange(todayVal);
+    else if (v === "tomorrow") onDateChange(tomorrowVal);
+    else onDateChange(""); // reveal the date input; user must pick a date
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onAdd();
@@ -45,7 +71,30 @@ export function TaskInput({
           className="min-h-11 min-w-0 flex-[1_1_100%] rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:flex-[1_1_14rem]"
         />
 
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-none">
+          <select
+            value={preset}
+            onChange={handlePresetChange}
+            aria-label="Task date"
+            className="min-h-11 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:w-36 sm:flex-none"
+          >
+            <option value="today">Today</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="custom">Pick a date</option>
+          </select>
+
+          {preset === "custom" && (
+            <input
+              type="date"
+              value={selectedDate}
+              min={todayVal}
+              required
+              aria-label="Custom task date"
+              onChange={(e) => onDateChange(e.target.value)}
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:w-40 sm:flex-none"
+            />
+          )}
+
           <select
             value={selectedSection}
             onChange={(e) => onSectionChange(e.target.value as SectionId)}
@@ -72,7 +121,7 @@ export function TaskInput({
             </button>
             <button
               type="submit"
-              disabled={!value.trim()}
+              disabled={!value.trim() || !selectedDate}
               aria-label="Add task"
               title="Add task"
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white transition hover:bg-teal-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-not-allowed disabled:bg-zinc-300"

@@ -164,7 +164,7 @@ function parseMemoryList(memories: LocusGraphMemory[] | string): LocusGraphMemor
   return [];
 }
 
-function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerState {
+export function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerState {
   const days: Record<string, DayRecord> = {};
   const memories = parseMemoryList(res.memories);
 
@@ -185,6 +185,11 @@ function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerState {
       }
       days[date].tasks.push(taskData as FocusTask);
     }
+  }
+
+  // Stable FIFO order — LocusGraph makes no ordering guarantee
+  for (const day of Object.values(days)) {
+    day.tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
   return { days };
