@@ -17,32 +17,35 @@ function getLast7DaysKeys(): string[] {
 }
 
 export function OracleCard({ enabled }: { enabled: boolean }) {
-  const [data, setData] = useState<OracleData | null>(null);
+  const [data, setData] = useState<OracleData | null>(() => {
+    if (typeof window === "undefined") return null;
 
-  useEffect(() => {
-    if (!enabled) return;
+    const hit = sessionStorage.getItem(`dayline:oracle:${todayKey()}`);
+    if (!hit) return null;
 
-    const cacheKey = `dayline:oracle:${todayKey()}`;
-    const hit = sessionStorage.getItem(cacheKey);
-    if (hit) {
-      try {
-        const parsed = JSON.parse(hit) as Partial<OracleData>;
-        if (typeof parsed.insight === "string" && parsed.insight) {
-          setData({ insight: parsed.insight, recommendation: parsed.recommendation ?? "" });
-          return;
-        }
-      } catch {
-        // malformed cache — fall through to fetch
+    try {
+      const parsed = JSON.parse(hit) as Partial<OracleData>;
+      if (typeof parsed.insight === "string" && parsed.insight) {
+        return { insight: parsed.insight, recommendation: parsed.recommendation ?? "" };
       }
+    } catch {
+      // malformed cache
     }
 
+    return null;
+  });
+
+  useEffect(() => {
+    if (!enabled || data) return;
+
+    const cacheKey = `dayline:oracle:${todayKey()}`;
     const ledger = loadLedger();
     const last7Keys = getLast7DaysKeys();
     const days = Object.fromEntries(
       Object.entries(ledger.days).filter(([key]) => last7Keys.includes(key))
     );
 
-    fetch("/api/locusgraph/insights", {
+    fetch("/api/oracle/insights", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Requested-With": "dayline" },
       body: JSON.stringify({ days }),
@@ -60,7 +63,7 @@ export function OracleCard({ enabled }: { enabled: boolean }) {
         }
       })
       .catch(() => {});
-  }, [enabled]);
+  }, [data, enabled]);
 
   if (!data) return null;
 
