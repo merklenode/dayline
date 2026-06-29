@@ -1,15 +1,16 @@
 # Dayline
 
-A scheduled daily focus system for building routine and visible progress.
+A simple daily planning and focus timer app for building routine and visible progress.
 
 ## Why This Exists
 
-Dayline is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It uses a fixed 9:00 AM to 7:00 PM workday so the user always knows what block should be active.
+Dayline is built for a student or early-career developer who needs a practical routine before chasing jobs or freelance work. It keeps the main workflow focused on a compact Today Plan while still allowing evening planning for tomorrow or another upcoming day.
 
-- follow a time-blocked daily schedule
-- edit each block heading
-- add topics/tasks to each block
-- see the active block and remaining time
+- add tasks for today, tomorrow, or a custom future date
+- keep tasks grouped under configurable work sections
+- preserve task order so the first task entered appears first
+- use a manual focus timer for today's tasks
+- review past days separately from upcoming plans
 - keep progress in browser localStorage
 
 ## Tech Stack
@@ -28,11 +29,10 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
-## MVP Acceptance Criteria
+## Product Behavior
 
-- Render the full 9:00 AM to 7:00 PM daily schedule.
-- Derive the active block from the current clock time.
-- Preserve heading edits and block tasks in localStorage.
-- Add, complete, and delete topics per schedule block.
-- Show before-start and day-complete states.
-- Deploy cleanly on Vercel.
+- Today is the default workspace.
+- Tasks can be planned for Today, Tomorrow, or a picked future date.
+- Upcoming planned tasks stay out of today's section cards and history.
+- History shows past days only.
+- Focus timers are available only for today's tasks.

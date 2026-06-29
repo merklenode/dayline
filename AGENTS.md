@@ -110,10 +110,12 @@ After deploying to Vercel preview:
 
 ## Current Product Direction
 
-The active plan is:
+The active product direction is:
 
 - Keep Dayline simple like the previous simple deployment.
 - Use one `Today Plan` screen.
+- Allow pre-planning for Tomorrow or a custom future date from the task input.
+- Keep upcoming planned work separate from today's task cards and past history.
 - Group tasks under four sections:
   - Plan & Research
   - Execution Time
@@ -128,5 +130,5 @@ See:
 
 ```text
 docs/recent-implementation/README.md
-docs/upgrading-plan/README.md
+docs/README.md
 ```
