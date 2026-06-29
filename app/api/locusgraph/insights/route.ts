@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await lg.generateInsights({ task: body.task }, body.graph_id);
+    const result = await lg.generateInsights({ task: body.task, graphId: body.graph_id });
     return Response.json(result);
   } catch (err) {
     console.error(err);

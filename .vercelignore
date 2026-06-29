@@ -1,0 +1,4 @@
+.dev.vars*
+.open-next
+.wrangler
+tsconfig.tsbuildinfo
