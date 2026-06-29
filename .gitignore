@@ -5,11 +5,9 @@ out
 tsconfig.tsbuildinfo
 .env*
 !.env.example
+!.env.local.example
 
-# OpenNext
+# Generated deployment artifacts
 .open-next
-
-# wrangler files
 .wrangler
 .dev.vars*
-!.dev.vars.example
