@@ -49,7 +49,7 @@ export function TaskInput({
     const v = e.target.value;
     if (v === "today") onDateChange(todayVal);
     else if (v === "tomorrow") onDateChange(tomorrowVal);
-    else onDateChange(""); // reveal the date input; user must pick a date
+    else if (selectedDate === todayVal || selectedDate === tomorrowVal) onDateChange(""); // reveal the date input; user must pick a date
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

@@ -487,18 +487,8 @@ export default function Home() {
                           activeTaskId={null}
                           isToday={false}
                           onStart={() => {}}
-                          onToggle={(id) =>
-                            updateDay(record.date, (d) => ({
-                              ...d,
-                              tasks: d.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-                            }))
-                          }
-                          onDelete={(id) =>
-                            updateDay(record.date, (d) => ({
-                              ...d,
-                              tasks: d.tasks.filter((t) => t.id !== id),
-                            }))
-                          }
+                          onToggle={toggleTask}
+                          onDelete={deleteTask}
                         />
                       ))}
                     </div>
