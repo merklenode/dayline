@@ -1,20 +1,19 @@
-import { NextResponse } from "next/server";
-import { proxyToLocusGraph } from "@/lib/locusgraph-proxy";
+import { lg } from '@/lib/locusgraph';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as { query?: string; graph_id?: string } | null;
+
+  if (!body || typeof body.query !== 'string') {
+    return Response.json({ error: 'query is required' }, { status: 400 });
+  }
+
   try {
-    const upstream = await proxyToLocusGraph("/memories", body);
-    if (!upstream.ok) {
-      const data = (await upstream.json().catch(() => ({}))) as unknown;
-      return NextResponse.json(data, { status: upstream.status });
-    }
-    const data = (await upstream.json()) as unknown;
-    return NextResponse.json(data);
+    const result = await lg.retrieveMemories({ query: body.query, graphId: body.graph_id });
+    return Response.json(result);
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "LocusGraph unavailable" },
-      { status: 502 }
-    );
+    console.error(err);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

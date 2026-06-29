@@ -45,25 +45,38 @@ export async function POST(request: Request) {
     language: "en-US"
   });
 
-  const response = await fetch("https://api.languagetool.org/v2/check", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: params.toString()
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
+  try {
+    const response = await fetch("https://api.languagetool.org/v2/check", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: params.toString(),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return NextResponse.json({ error: "English check is unavailable right now." }, { status: 502 });
+    }
+
+    const result = (await response.json()) as LanguageToolResponse;
+    const matches = result.matches ?? [];
+    const correctedText = applyTopReplacements(text, matches);
+
+    return NextResponse.json({
+      correctedText,
+      changed: correctedText !== text,
+      matches: matches.length,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      return NextResponse.json({ error: "English check timed out." }, { status: 504 });
+    }
     return NextResponse.json({ error: "English check is unavailable right now." }, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const result = (await response.json()) as LanguageToolResponse;
-  const matches = result.matches ?? [];
-  const correctedText = applyTopReplacements(text, matches);
-
-  return NextResponse.json({
-    correctedText,
-    changed: correctedText !== text,
-    matches: matches.length
-  });
 }
