@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { CreateEventApiRequest } from "@locusgraph/client";
 import { getLocusGraphClient } from "@/lib/locusgraph";
 
+export const runtime = "nodejs";
+
 type DaylineEvent = {
   contextId?: string;
   context_id?: string;

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { ContextQuery } from "@locusgraph/client";
 import { getLocusGraphClient } from "@/lib/locusgraph";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Partial<ContextQuery> | null;
 

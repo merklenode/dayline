@@ -17,60 +17,53 @@ function getLast7DaysKeys(): string[] {
 }
 
 export function OracleCard({ enabled }: { enabled: boolean }) {
-  const [data, setData] = useState<OracleData | null>(null);
+  const [data, setData] = useState<OracleData | null>(() => {
+    if (typeof window === "undefined") return null;
+
+    const hit = sessionStorage.getItem(`dayline:oracle:${todayKey()}`);
+    if (!hit) return null;
+
+    try {
+      const parsed = JSON.parse(hit) as Partial<OracleData>;
+      if (typeof parsed.insight === "string" && parsed.insight) {
+        return { insight: parsed.insight, recommendation: parsed.recommendation ?? "" };
+      }
+    } catch {
+      // malformed cache
+    }
+
+    return null;
+  });
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || data) return;
 
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      const cacheKey = `dayline:oracle:${todayKey()}`;
-      const hit = sessionStorage.getItem(cacheKey);
-      if (hit) {
-        try {
-          const parsed = JSON.parse(hit) as Partial<OracleData>;
-          if (typeof parsed.insight === "string" && parsed.insight) {
-            if (!cancelled) {
-              setData({ insight: parsed.insight, recommendation: parsed.recommendation ?? "" });
-            }
-            return;
-          }
-        } catch {
-          // malformed cache; fall through to fetch
+    const cacheKey = `dayline:oracle:${todayKey()}`;
+    const ledger = loadLedger();
+    const last7Keys = getLast7DaysKeys();
+    const days = Object.fromEntries(
+      Object.entries(ledger.days).filter(([key]) => last7Keys.includes(key))
+    );
+
+    fetch("/api/oracle/insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "dayline" },
+      body: JSON.stringify({ days }),
+    })
+      .then((r) => r.json())
+      .then((d: unknown) => {
+        const result = d as Partial<OracleData>;
+        if (typeof result.insight === "string" && result.insight) {
+          const safe: OracleData = {
+            insight: result.insight,
+            recommendation: result.recommendation ?? "",
+          };
+          sessionStorage.setItem(cacheKey, JSON.stringify(safe));
+          setData(safe);
         }
-      }
-
-      const ledger = loadLedger();
-      const last7Keys = getLast7DaysKeys();
-      const days = Object.fromEntries(
-        Object.entries(ledger.days).filter(([key]) => last7Keys.includes(key))
-      );
-
-      fetch("/api/locusgraph/insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "dayline" },
-        body: JSON.stringify({ days }),
       })
-        .then((r) => r.json())
-        .then((d: unknown) => {
-          if (cancelled) return;
-          const result = d as Partial<OracleData>;
-          if (typeof result.insight === "string" && result.insight) {
-            const safe: OracleData = {
-              insight: result.insight,
-              recommendation: result.recommendation ?? "",
-            };
-            sessionStorage.setItem(cacheKey, JSON.stringify(safe));
-            setData(safe);
-          }
-        })
-        .catch(() => {});
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled]);
+      .catch(() => {});
+  }, [data, enabled]);
 
   if (!data) return null;
 
@@ -80,9 +73,6 @@ export function OracleCard({ enabled }: { enabled: boolean }) {
       {data.recommendation && (
         <p className="mt-1 font-medium text-zinc-300">{data.recommendation}</p>
       )}
-      <p className="mt-2 text-xs text-zinc-500">
-        Uses recent task history and distraction notes to generate this insight.
-      </p>
     </div>
   );
 }
