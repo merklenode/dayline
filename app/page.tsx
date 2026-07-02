@@ -9,11 +9,10 @@ import {
   pushCompletedSession,
   pushLedger,
   saveLedger,
-  SectionId,
   todayKey,
 } from "@/lib/storage";
 import { useLedger } from "@/lib/useLedger";
-import { AppSettings, loadSettings, saveSettings, SECTION_ORDER } from "@/lib/settings";
+import { AppSettings, loadSettings, saveSettings } from "@/lib/settings";
 import {
   expireSession,
   loadSession,
@@ -56,7 +55,9 @@ export default function Home() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
-  const [selectedSection, setSelectedSection] = useState<SectionId>("execution");
+  const [selectedSection, setSelectedSection] = useState<string>(
+    () => loadSettings().sections[0]?.id ?? ""
+  );
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [checkingTask, setCheckingTask] = useState(false);
   const [checkingNote, setCheckingNote] = useState(false);
@@ -323,13 +324,42 @@ export default function Home() {
     }
   }
 
+  function handleSettingsSave(updated: AppSettings) {
+    const oldIds = new Set(settings.sections.map(s => s.id));
+    const newIds = new Set(updated.sections.map(s => s.id));
+    const removed = new Set([...oldIds].filter(id => !newIds.has(id)));
+
+    if (removed.size > 0) {
+      const fallbackId = updated.sections[0].id;
+      setLedger(prev => ({
+        days: Object.fromEntries(
+          Object.entries(prev.days).map(([k, rec]) => [
+            k,
+            {
+              ...rec,
+              tasks: rec.tasks.map(t =>
+                removed.has(t.section) ? { ...t, section: fallbackId } : t
+              ),
+            },
+          ])
+        ),
+      }));
+    }
+
+    if (!newIds.has(selectedSection)) {
+      setSelectedSection(updated.sections[0].id);
+    }
+
+    setSettings(updated);
+    setSettingsOpen(false);
+  }
+
   const completedTasks = today.tasks.filter((t) => t.done).length;
   const allDone = today.tasks.length > 0 && today.tasks.every((t) => t.done);
   const activeTaskId = session.status !== "idle" ? session.taskId : null;
-  const visibleSections = SECTION_ORDER.map((sectionId) => ({
-    id: sectionId,
-    tasks: today.tasks.filter((t) => t.section === sectionId),
-  })).filter((section) => section.tasks.length > 0);
+  const visibleSections = settings.sections
+    .map((s) => ({ id: s.id, name: s.name, tasks: today.tasks.filter((t) => t.section === s.id) }))
+    .filter((s) => s.tasks.length > 0);
   const previousRecords = Object.values(ledger.days)
     .filter((record) => record.date < date)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -381,7 +411,7 @@ export default function Home() {
               <CurrentSessionCard
                 session={session}
                 tasks={today.tasks}
-                sectionNames={settings.sectionNames}
+                sections={settings.sections}
                 onPause={handlePause}
                 onResume={handleResume}
                 onStop={handleStop}
@@ -441,7 +471,7 @@ export default function Home() {
                   {visibleSections.map((section) => (
                     <SectionGroup
                       key={section.id}
-                      name={settings.sectionNames[section.id]}
+                      name={section.name}
                       tasks={section.tasks}
                       activeTaskId={activeTaskId}
                       isToday={true}
@@ -472,8 +502,8 @@ export default function Home() {
           ) : (
             <div className="space-y-6">
               {upcomingRecords.map((record) => {
-                const sections = SECTION_ORDER
-                  .map((id) => ({ id, tasks: record.tasks.filter((t) => t.section === id) }))
+                const sections = settings.sections
+                  .map((s) => ({ id: s.id, name: s.name, tasks: record.tasks.filter((t) => t.section === s.id) }))
                   .filter((s) => s.tasks.length > 0);
                 return (
                   <section key={record.date}>
@@ -482,7 +512,7 @@ export default function Home() {
                       {sections.map((section) => (
                         <SectionGroup
                           key={section.id}
-                          name={settings.sectionNames[section.id]}
+                          name={section.name}
                           tasks={section.tasks}
                           activeTaskId={null}
                           isToday={false}
@@ -506,10 +536,7 @@ export default function Home() {
         <SettingsModal
           settings={settings}
           onClose={() => setSettingsOpen(false)}
-          onSave={(updated) => {
-            setSettings(updated);
-            setSettingsOpen(false);
-          }}
+          onSave={handleSettingsSave}
         />
       )}
     </main>

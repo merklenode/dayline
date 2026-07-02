@@ -1,4 +1,4 @@
-export type SectionId = "plan" | "execution" | "learning" | "windup";
+export type SectionId = string;
 
 export type FocusTask = {
   id: string;
