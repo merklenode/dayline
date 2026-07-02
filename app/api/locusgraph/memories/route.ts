@@ -14,7 +14,6 @@ export async function POST(request: Request) {
       format: body?.format ?? "json",
       contextTypes: body?.contextTypes,
       contextIds: body?.contextIds,
-      graphId: body?.graphId,
     });
     return NextResponse.json(result);
   } catch (err) {

@@ -72,9 +72,11 @@ export async function POST(request: Request) {
     return NextResponse.json({}, { status: 403 });
   }
 
+  // x-forwarded-for is client-controlled without a trusted proxy — rate limit is advisory only
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
   const now = Date.now();
   const timestamps = (ipRateLimit.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (!timestamps.length) ipRateLimit.delete(ip);
   timestamps.push(now);
   ipRateLimit.set(ip, timestamps);
   if (timestamps.length > RATE_LIMIT) {

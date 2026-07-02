@@ -183,13 +183,16 @@ export function remapMemoriesToLedger(res: LocusGraphMemoriesResponse): LedgerSt
       if (!days[date]) {
         days[date] = createEmptyDay(date);
       }
-      days[date].tasks.push(taskData as FocusTask);
+      const task = taskData as FocusTask;
+      if (task.id && task.title && task.section && task.createdAt) {
+        days[date].tasks.push(task);
+      }
     }
   }
 
   // Stable FIFO order — LocusGraph makes no ordering guarantee
   for (const day of Object.values(days)) {
-    day.tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    day.tasks.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
   }
 
   return { days };
