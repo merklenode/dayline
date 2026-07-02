@@ -81,12 +81,13 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
               ))}
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const id = crypto.randomUUID();
                   setDraft(d => ({
                     ...d,
-                    sections: [...d.sections, { id: crypto.randomUUID(), name: "" }],
-                  }))
-                }
+                    sections: [...d.sections, { id, name: "" }],
+                  }));
+                }}
                 className="mt-1 text-sm text-teal-700 transition hover:text-teal-900"
               >
                 + Add section

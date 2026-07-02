@@ -34,8 +34,7 @@ export function DailyRecords({ records, settings }: DailyRecordsProps) {
             const doneCount = record.tasks.filter((task) => task.done).length;
             const groupedTasks = record.tasks.reduce<Record<string, typeof record.tasks>>(
               (groups, task) => {
-                const sectionName = settings.sections.find(s => s.id === task.section)?.name ?? "(removed)";
-                groups[sectionName] = [...(groups[sectionName] ?? []), task];
+                groups[task.section] = [...(groups[task.section] ?? []), task];
                 return groups;
               },
               {}
@@ -53,21 +52,24 @@ export function DailyRecords({ records, settings }: DailyRecordsProps) {
 
                 {record.tasks.length > 0 && (
                   <div className="mt-3 space-y-3">
-                    {Object.entries(groupedTasks).map(([sectionName, tasks]) => (
-                      <div key={sectionName}>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                          {sectionName}
-                        </p>
-                        <ul className="mt-1 space-y-1">
-                          {tasks.map((task) => (
-                            <li key={task.id} className="flex items-start gap-2 text-sm text-zinc-700">
-                              <span className="mt-0.5 text-xs text-zinc-400">{task.done ? "Done" : "Open"}</span>
-                              <span className={task.done ? "text-zinc-500 line-through" : ""}>{task.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                    {Object.entries(groupedTasks).map(([sectionId, tasks]) => {
+                      const sectionName = settings.sections.find(s => s.id === sectionId)?.name ?? "(removed)";
+                      return (
+                        <div key={sectionId}>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            {sectionName}
+                          </p>
+                          <ul className="mt-1 space-y-1">
+                            {tasks.map((task) => (
+                              <li key={task.id} className="flex items-start gap-2 text-sm text-zinc-700">
+                                <span className="mt-0.5 text-xs text-zinc-400">{task.done ? "Done" : "Open"}</span>
+                                <span className={task.done ? "text-zinc-500 line-through" : ""}>{task.title}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
