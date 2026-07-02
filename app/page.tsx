@@ -346,9 +346,7 @@ export default function Home() {
       }));
     }
 
-    if (!newIds.has(selectedSection)) {
-      setSelectedSection(updated.sections[0].id);
-    }
+    setSelectedSection(updated.sections[0].id);
 
     setSettings(updated);
     setSettingsOpen(false);
