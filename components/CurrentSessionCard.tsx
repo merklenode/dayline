@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Coffee, Play, Square } from "lucide-react";
-import type { FocusTask, SectionId } from "@/lib/storage";
+import type { FocusTask } from "@/lib/storage";
+import type { Section } from "@/lib/settings";
 import { type SessionState, msLeft } from "@/lib/sessionState";
 
 type CurrentSessionCardProps = {
   session: SessionState;
   tasks: FocusTask[];
-  sectionNames: Record<SectionId, string>;
+  sections: Section[];
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
@@ -53,7 +54,7 @@ function ProgressBar({
 export function CurrentSessionCard({
   session,
   tasks,
-  sectionNames,
+  sections,
   onPause,
   onResume,
   onStop,
@@ -78,7 +79,7 @@ export function CurrentSessionCard({
   if (session.status === "running" && session.phase === "focus") {
     const remaining = msLeft(session);
     const progress = 1 - remaining / session.durationMs;
-    const sectionLabel = activeTask ? sectionNames[activeTask.section] : "";
+    const sectionLabel = activeTask ? (sections.find((s) => s.id === activeTask.section)?.name ?? "") : "";
 
     return (
       <section

@@ -1,11 +1,9 @@
-export type SectionId = "plan" | "execution" | "learning" | "windup";
-
 export type FocusTask = {
   id: string;
   title: string;
   done: boolean;
   createdAt: string;
-  section: SectionId;
+  section: string;
 };
 
 export type DayRecord = {
@@ -49,7 +47,7 @@ function migrateV1ToV2(): LedgerState | null {
           key,
           {
             ...record,
-            tasks: record.tasks.map((t) => ({ ...t, section: "execution" as SectionId }))
+            tasks: record.tasks.map((t) => ({ ...t, section: "execution" }))
           }
         ])
       )

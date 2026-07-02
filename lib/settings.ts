@@ -1,30 +1,26 @@
-import type { SectionId } from "./storage";
-
-export const SECTION_ORDER: SectionId[] = ["plan", "execution", "learning", "windup"];
-
-export const DEFAULT_SECTION_NAMES: Record<SectionId, string> = {
-  plan: "Plan & Research",
-  execution: "Execution Time",
-  learning: "Learning Time",
-  windup: "Wind Up & Plan"
-};
-
-export const DEFAULT_WORK_MINUTES = 25;
-export const DEFAULT_BREAK_MINUTES = 5;
+export type Section = { id: string; name: string };
 
 export type AppSettings = {
-  sectionNames: Record<SectionId, string>;
+  sections: Section[];
   workMinutes: number;
   breakMinutes: number;
 };
+
+const DEFAULT_WORK_MINUTES = 25;
+const DEFAULT_BREAK_MINUTES = 5;
 
 const SETTINGS_KEY = "dayline:settings";
 
 export function defaultSettings(): AppSettings {
   return {
-    sectionNames: { ...DEFAULT_SECTION_NAMES },
+    sections: [
+      { id: "plan",      name: "Plan & Research" },
+      { id: "execution", name: "Execution Time" },
+      { id: "learning",  name: "Learning Time" },
+      { id: "windup",    name: "Wind Up & Plan" },
+    ],
     workMinutes: DEFAULT_WORK_MINUTES,
-    breakMinutes: DEFAULT_BREAK_MINUTES
+    breakMinutes: DEFAULT_BREAK_MINUTES,
   };
 }
 
@@ -33,11 +29,24 @@ export function loadSettings(): AppSettings {
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
     if (!raw) return defaultSettings();
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+    // Migrate old { sectionNames: Record<string,string> } shape
+    if (parsed.sectionNames && !parsed.sections) {
+      const oldNames = parsed.sectionNames as Record<string, string>;
+      const def = defaultSettings();
+      return {
+        sections: def.sections.map((s) => ({ id: s.id, name: oldNames[s.id] ?? s.name })),
+        workMinutes: typeof parsed.workMinutes === "number" ? parsed.workMinutes : DEFAULT_WORK_MINUTES,
+        breakMinutes: typeof parsed.breakMinutes === "number" ? parsed.breakMinutes : DEFAULT_BREAK_MINUTES,
+      };
+    }
+
+    const p = parsed as Partial<AppSettings>;
     return {
-      sectionNames: { ...DEFAULT_SECTION_NAMES, ...parsed.sectionNames },
-      workMinutes: parsed.workMinutes ?? DEFAULT_WORK_MINUTES,
-      breakMinutes: parsed.breakMinutes ?? DEFAULT_BREAK_MINUTES
+      sections: Array.isArray(p.sections) && p.sections.length > 0 && p.sections.every(s => s && typeof s.id === 'string' && typeof s.name === 'string') ? p.sections : defaultSettings().sections,
+      workMinutes: p.workMinutes ?? DEFAULT_WORK_MINUTES,
+      breakMinutes: p.breakMinutes ?? DEFAULT_BREAK_MINUTES,
     };
   } catch {
     return defaultSettings();

@@ -34,7 +34,7 @@ export function DailyRecords({ records, settings }: DailyRecordsProps) {
             const doneCount = record.tasks.filter((task) => task.done).length;
             const groupedTasks = record.tasks.reduce<Record<string, typeof record.tasks>>(
               (groups, task) => {
-                const sectionName = settings.sectionNames[task.section];
+                const sectionName = settings.sections.find((s) => s.id === task.section)?.name ?? "(removed)";
                 groups[sectionName] = [...(groups[sectionName] ?? []), task];
                 return groups;
               },

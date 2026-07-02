@@ -1,7 +1,5 @@
 import { CalendarDays, Plus, WandSparkles } from "lucide-react";
-import type { SectionId } from "@/lib/storage";
 import { todayKey } from "@/lib/storage";
-import { SECTION_ORDER } from "@/lib/settings";
 import type { AppSettings } from "@/lib/settings";
 
 function tomorrowKey() {
@@ -23,13 +21,13 @@ function formatTaskDate(date: string) {
 
 type TaskInputProps = {
   value: string;
-  selectedSection: SectionId;
+  selectedSection: string;
   selectedDate: string;
   settings: AppSettings;
   checking: boolean;
   englishStatus: string;
   onChange: (value: string) => void;
-  onSectionChange: (id: SectionId) => void;
+  onSectionChange: (id: string) => void;
   onDateChange: (date: string) => void;
   onAdd: () => void;
   onFixSpelling: () => void;
@@ -105,13 +103,13 @@ export function TaskInput({
 
           <select
             value={selectedSection}
-            onChange={(e) => onSectionChange(e.target.value as SectionId)}
+            onChange={(e) => onSectionChange(e.target.value)}
             aria-label="Task section"
             className="min-h-11 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:w-52 sm:flex-none"
           >
-            {SECTION_ORDER.map((id) => (
-              <option key={id} value={id}>
-                {settings.sectionNames[id]}
+            {settings.sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { AppSettings } from "@/lib/settings";
-import { SECTION_ORDER, DEFAULT_SECTION_NAMES, DEFAULT_WORK_MINUTES, DEFAULT_BREAK_MINUTES } from "@/lib/settings";
+import { defaultSettings } from "@/lib/settings";
 
 type SettingsModalProps = {
   settings: AppSettings;
@@ -11,9 +11,9 @@ type SettingsModalProps = {
 
 export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps) {
   const [draft, setDraft] = useState<AppSettings>({
-    sectionNames: { ...settings.sectionNames },
+    sections: settings.sections.map((s) => ({ ...s })),
     workMinutes: settings.workMinutes,
-    breakMinutes: settings.breakMinutes
+    breakMinutes: settings.breakMinutes,
   });
 
   useEffect(() => {
@@ -23,11 +23,7 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
   }, [onClose]);
 
   function resetDefaults() {
-    setDraft({
-      sectionNames: { ...DEFAULT_SECTION_NAMES },
-      workMinutes: DEFAULT_WORK_MINUTES,
-      breakMinutes: DEFAULT_BREAK_MINUTES
-    });
+    setDraft(defaultSettings());
   }
 
   return (
@@ -52,16 +48,18 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Section Names</p>
             <div className="space-y-2">
-              {SECTION_ORDER.map((id) => (
-                <div key={id} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-xs text-zinc-400">{id}</span>
+              {draft.sections.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-xs text-zinc-400">{s.id}</span>
                   <input
                     type="text"
-                    value={draft.sectionNames[id]}
+                    value={s.name}
                     onChange={(e) =>
                       setDraft((d) => ({
                         ...d,
-                        sectionNames: { ...d.sectionNames, [id]: e.target.value }
+                        sections: d.sections.map((sec, j) =>
+                          j === i ? { ...sec, name: e.target.value } : sec
+                        ),
                       }))
                     }
                     className="flex-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
