@@ -44,7 +44,7 @@ export function loadSettings(): AppSettings {
 
     const p = parsed as Partial<AppSettings>;
     return {
-      sections: Array.isArray(p.sections) ? p.sections : defaultSettings().sections,
+      sections: Array.isArray(p.sections) && p.sections.length > 0 && p.sections.every(s => s && typeof s.id === 'string' && typeof s.name === 'string') ? p.sections : defaultSettings().sections,
       workMinutes: p.workMinutes ?? DEFAULT_WORK_MINUTES,
       breakMinutes: p.breakMinutes ?? DEFAULT_BREAK_MINUTES,
     };
