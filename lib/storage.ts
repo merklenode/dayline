@@ -1,3 +1,5 @@
+export type SectionId = string;
+
 export type FocusTask = {
   id: string;
   title: string;

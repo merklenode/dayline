@@ -6,19 +6,30 @@ export type AppSettings = {
   breakMinutes: number;
 };
 
-const DEFAULT_WORK_MINUTES = 25;
-const DEFAULT_BREAK_MINUTES = 5;
+export const DEFAULT_SECTIONS: Section[] = [
+  { id: "plan",      name: "Plan & Research" },
+  { id: "execution", name: "Execution Time" },
+  { id: "learning",  name: "Learning Time" },
+  { id: "windup",    name: "Wind Up & Plan" },
+];
+
+export const DEFAULT_WORK_MINUTES = 25;
+export const DEFAULT_BREAK_MINUTES = 5;
+
+// Used only for migrating old localStorage format — not exported.
+const LEGACY_SECTION_ORDER = ["plan", "execution", "learning", "windup"] as const;
+const LEGACY_DEFAULT_NAMES: Record<string, string> = {
+  plan: "Plan & Research",
+  execution: "Execution Time",
+  learning: "Learning Time",
+  windup: "Wind Up & Plan",
+};
 
 const SETTINGS_KEY = "dayline:settings";
 
 export function defaultSettings(): AppSettings {
   return {
-    sections: [
-      { id: "plan",      name: "Plan & Research" },
-      { id: "execution", name: "Execution Time" },
-      { id: "learning",  name: "Learning Time" },
-      { id: "windup",    name: "Wind Up & Plan" },
-    ],
+    sections: DEFAULT_SECTIONS.map(s => ({ ...s })),
     workMinutes: DEFAULT_WORK_MINUTES,
     breakMinutes: DEFAULT_BREAK_MINUTES,
   };
@@ -31,22 +42,34 @@ export function loadSettings(): AppSettings {
     if (!raw) return defaultSettings();
     const parsed = JSON.parse(raw) as Record<string, unknown>;
 
-    // Migrate old { sectionNames: Record<string,string> } shape
+    // Migrate old format: { sectionNames: Record<string, string>, ... }
     if (parsed.sectionNames && !parsed.sections) {
-      const oldNames = parsed.sectionNames as Record<string, string>;
-      const def = defaultSettings();
+      const names = parsed.sectionNames as Record<string, string>;
       return {
-        sections: def.sections.map((s) => ({ id: s.id, name: oldNames[s.id] ?? s.name })),
-        workMinutes: typeof parsed.workMinutes === "number" ? parsed.workMinutes : DEFAULT_WORK_MINUTES,
-        breakMinutes: typeof parsed.breakMinutes === "number" ? parsed.breakMinutes : DEFAULT_BREAK_MINUTES,
+        sections: LEGACY_SECTION_ORDER.map(id => ({
+          id,
+          name: names[id] ?? LEGACY_DEFAULT_NAMES[id],
+        })),
+        workMinutes: (parsed.workMinutes as number) ?? DEFAULT_WORK_MINUTES,
+        breakMinutes: (parsed.breakMinutes as number) ?? DEFAULT_BREAK_MINUTES,
       };
     }
 
-    const p = parsed as Partial<AppSettings>;
+    const sections = Array.isArray(parsed.sections)
+      && parsed.sections.length > 0
+      && parsed.sections.every((section) =>
+        section
+        && typeof section === "object"
+        && typeof (section as Partial<Section>).id === "string"
+        && typeof (section as Partial<Section>).name === "string"
+      )
+      ? parsed.sections as Section[]
+      : DEFAULT_SECTIONS.map(s => ({ ...s }));
+
     return {
-      sections: Array.isArray(p.sections) && p.sections.length > 0 && p.sections.every(s => s && typeof s.id === 'string' && typeof s.name === 'string') ? p.sections : defaultSettings().sections,
-      workMinutes: p.workMinutes ?? DEFAULT_WORK_MINUTES,
-      breakMinutes: p.breakMinutes ?? DEFAULT_BREAK_MINUTES,
+      sections,
+      workMinutes: (parsed.workMinutes as number) ?? DEFAULT_WORK_MINUTES,
+      breakMinutes: (parsed.breakMinutes as number) ?? DEFAULT_BREAK_MINUTES,
     };
   } catch {
     return defaultSettings();
