@@ -48,24 +48,50 @@ export function SettingsModal({ settings, onClose, onSave }: SettingsModalProps)
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Section Names</p>
             <div className="space-y-2">
-              {draft.sections.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-xs text-zinc-400">{s.id}</span>
+              {draft.sections.map((section, i) => (
+                <div key={section.id} className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={s.name}
+                    value={section.name}
                     onChange={(e) =>
-                      setDraft((d) => ({
+                      setDraft(d => ({
                         ...d,
-                        sections: d.sections.map((sec, j) =>
-                          j === i ? { ...sec, name: e.target.value } : sec
+                        sections: d.sections.map((s, j) =>
+                          j === i ? { ...s, name: e.target.value } : s
                         ),
                       }))
                     }
                     className="flex-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft(d => ({
+                        ...d,
+                        sections: d.sections.filter((_, j) => j !== i),
+                      }))
+                    }
+                    disabled={draft.sections.length <= 1}
+                    aria-label={`Delete section ${section.name || String(i + 1)}`}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-red-600 disabled:cursor-not-allowed disabled:text-zinc-200"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const id = crypto.randomUUID();
+                  setDraft(d => ({
+                    ...d,
+                    sections: [...d.sections, { id, name: "" }],
+                  }));
+                }}
+                className="mt-1 text-sm text-teal-700 transition hover:text-teal-900"
+              >
+                + Add section
+              </button>
             </div>
           </div>
 
