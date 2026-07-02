@@ -62,6 +62,14 @@ function buildUserPrompt(days: Record<string, DayRecord>): string {
     .join("\n");
 }
 
+function pruneExpiredRateLimitEntries(now: number) {
+  for (const [ip, timestamps] of ipRateLimit) {
+    if (timestamps.every((t) => now - t >= RATE_WINDOW_MS)) {
+      ipRateLimit.delete(ip);
+    }
+  }
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -75,8 +83,8 @@ export async function POST(request: Request) {
   // x-forwarded-for is client-controlled without a trusted proxy — rate limit is advisory only
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
   const now = Date.now();
+  pruneExpiredRateLimitEntries(now);
   const timestamps = (ipRateLimit.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (!timestamps.length) ipRateLimit.delete(ip);
   timestamps.push(now);
   ipRateLimit.set(ip, timestamps);
   if (timestamps.length > RATE_LIMIT) {

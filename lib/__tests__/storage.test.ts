@@ -177,6 +177,43 @@ describe("remapMemoriesToLedger — task ordering", () => {
     expect(ledger.days["2026-06-28"].tasks.map((t) => t.id)).toEqual(["d1t1", "d1t2"]);
     expect(ledger.days["2026-06-29"].tasks.map((t) => t.id)).toEqual(["d2t1"]);
   });
+
+  it("skips malformed task memories and keeps a usable ledger", () => {
+    const res = {
+      memories: [
+        {
+          contextId: "valid",
+          contextType: "task" as const,
+          data: {
+            id: "valid",
+            title: "Valid task",
+            done: false,
+            createdAt: "2026-06-29T09:00:00Z",
+            section: "execution",
+            date: "2026-06-29",
+          },
+        },
+        {
+          contextId: "missing-created-at",
+          contextType: "task" as const,
+          data: {
+            id: "missing-created-at",
+            title: "Malformed task",
+            done: false,
+            section: "execution",
+            date: "2026-06-29",
+          },
+        },
+      ],
+    };
+
+    const ledger = remapMemoriesToLedger(
+      res as unknown as Parameters<typeof remapMemoriesToLedger>[0]
+    );
+
+    expect(ledger.days["2026-06-29"].tasks).toHaveLength(1);
+    expect(ledger.days["2026-06-29"].tasks[0]).toMatchObject({ id: "valid" });
+  });
 });
 
 describe("saveLedger error resilience", () => {
